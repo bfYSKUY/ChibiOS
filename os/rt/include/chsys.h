@@ -60,14 +60,18 @@
  * @brief   Access to current core's instance structure.
  */
 #if defined(PORT_INSTANCE_ACCESS)
-#define currcore                            PORT_INSTANCE_ACCESS
-#else
-#if (CH_CFG_SMP_MODE == FALSE) || defined(__DOXYGEN__)
-#define currcore                            (&ch)
-#else
-#define currcore                            ch_system.instances[port_get_core_id()]
-#endif
-#endif
+  #define currcore                      PORT_INSTANCE_ACCESS
+#else /* !defined(PORT_INSTANCE_ACCESS) */
+  #if defined(PORT_CORES_NUMBER)
+    #if (PORT_CORES_NUMBER > 1) || defined(__DOXYGEN__)
+      #define currcore                  ch_system.instances[port_get_core_id()]
+    #else
+      #define currcore                  (&ch0)
+    #endif
+  #else
+    #define currcore                    (&ch0)
+  #endif /* defined(PORT_CORES_NUMBER) */
+#endif /* defined(PORT_INSTANCE_ACCESS) */
 
 /*===========================================================================*/
 /* Module macros.                                                            */
@@ -291,16 +295,22 @@
 /*===========================================================================*/
 
 #if !defined(__DOXYGEN__)
-#if CH_CFG_SMP_MODE != FALSE
 extern ch_system_t ch_system;
+
+extern const os_instance_config_t ch_core0_cfg;
+extern os_instance_t ch0;
+
+#if PORT_CORES_NUMBER > 1
+extern const os_instance_config_t ch_core1_cfg;
+extern os_instance_t ch1;
 #endif
-extern os_instance_t ch;
-extern stkalign_t ch_idle_thread_wa[];
-#endif
+
+#endif /* !defined(__DOXYGEN__) */
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+  void chSysWaitSystemState(system_state_t state);
   void chSysInit(void);
   bool chSysIntegrityCheckI(unsigned testmask);
   void chSysTimerHandlerI(void);
@@ -474,7 +484,7 @@ static inline void chSysUnconditionalUnlock(void) {
   }
 }
 
-#if (CH_CFG_SMP_MODE != FALSE) || defined(__DOXYGEN__)
+#if (CH_CFG_SMP_MODE == TRUE) || defined(__DOXYGEN__)
 /**
  * @brief   Notifies an OS instance to check for reschedule.
  * @details An OS instance is notified to check if a reschedule is required,

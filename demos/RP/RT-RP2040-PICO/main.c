@@ -17,6 +17,8 @@
 #include "ch.h"
 #include "hal.h"
 
+semaphore_t blinker_sem;
+
 /*
  * Green LED blinker thread, times are in milliseconds.
  */
@@ -26,43 +28,20 @@ static THD_FUNCTION(Thread1, arg) {
   (void)arg;
   chRegSetThreadName("blinker");
   while (true) {
-    palClearLine(25U);
-    chThdSleepMilliseconds(500);
-    palSetLine(25U);
-    chThdSleepMilliseconds(500);
+    chSemWait(&blinker_sem);
+    palToggleLine(25U);
   }
-}
-
-/* Courtesy of Pico-SDK.*/
-static void start_core1(void) {
-  extern uint32_t __c1_main_stack_end__, _vectors;
-  extern void _crt0_c1_entry(void);
-  uint32_t cmd_sequence[] = {0, 0, 1,
-                             (uint32_t)&_vectors,
-                             (uint32_t)&__c1_main_stack_end__,
-                             (uint32_t)_crt0_c1_entry};
-  unsigned seq;
-
-  seq = 0;
-  do {
-    uint32_t response;
-    uint32_t cmd = cmd_sequence[seq];
-
-    /* Flushing the FIFO state before sending a zero.*/
-    if (!cmd) {
-      fifoFlushRead();
-    }
-    fifoBlockingWrite(cmd);
-    response = fifoBlockingRead();
-    /* Checking response, going forward or back to first step.*/
-    seq = cmd == response ? seq + 1U : 0U;
-  } while (seq < count_of(cmd_sequence));
 }
 
 /*
  * Application entry point.
  */
 int main(void) {
+
+  /*
+   * Shared objects initialization.
+   */
+  chSemObjectInit(&blinker_sem, 0);
 
   /*
    * System initializations.
@@ -73,11 +52,6 @@ int main(void) {
    */
   halInit();
   chSysInit();
-
-  /*
-   * Starting core 1 after performing all OS-related initializations.
-   */
-  start_core1();
 
   /*
    * Setting up GPIOs.

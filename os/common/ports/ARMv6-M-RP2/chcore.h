@@ -91,9 +91,7 @@
 /**
  * @brief   Port-related fields added to the OS instance structure.
  */
-#define PORT_INSTANCE_EXTRA_FIELDS                                          \
-  /* Core associated to this OS instance.*/                                 \
-  uint32_t              core_id;
+#define PORT_INSTANCE_EXTRA_FIELDS
 
 /**
  * @brief   Reschedule message sent through IPC FIFOs.
@@ -165,7 +163,7 @@
  * @details This constant is used in the calculation of the correct working
  *          area size.
  * @note    In this port this value is conservatively set to 64 because the
- *          function @p chSchDoReschedule() can have a stack frame, especially
+ *          function @p chSchDoPreemption() can have a stack frame, especially
  *          with compiler optimizations disabled. The value can be reduced
  *          when compiler optimizations are enabled.
  */
@@ -254,28 +252,26 @@
  */
 #define PORT_ARCHITECTURE_NAME          "ARMv6-M"
 
-#if ((CORTEX_MODEL == 0) && !defined(__CORE_CM0PLUS_H_DEPENDANT)) ||        \
-    defined(__DOXYGEN__)
-
-  /**
-   * @brief   Name of the architecture variant.
-   */
-  #define PORT_CORE_VARIANT_NAME        "Cortex-M0"
-
-#elif (CORTEX_MODEL == 0) && defined(__CORE_CM0PLUS_H_DEPENDANT)
-  #define PORT_CORE_VARIANT_NAME        "Cortex-M0+"
-
-#else
-  #error "unknown ARMv6-M variant"
-#endif
+/**
+ * @brief   Name of the architecture variant.
+ */
+#define PORT_CORE_VARIANT_NAME          "Cortex-M0+"
 
 /**
  * @brief   Port-specific information string.
  */
-#if (CORTEX_ALTERNATE_SWITCH == FALSE) || defined(__DOXYGEN__)
-  #define PORT_INFO                     "Preemption through NMI"
+#if (CH_CFG_SMP_MODE != FALSE) || defined(__DOXYGEN__)
+  #if (CORTEX_ALTERNATE_SWITCH == FALSE) || defined(__DOXYGEN__)
+    #define PORT_INFO                   "Preemption through NMI (SMP)"
+  #else
+    #define PORT_INFO                   "Preemption through PendSV (SMP)"
+  #endif
 #else
-  #define PORT_INFO                     "Preemption through PendSV"
+  #if (CORTEX_ALTERNATE_SWITCH == FALSE) || defined(__DOXYGEN__)
+    #define PORT_INFO                     "Preemption through NMI"
+  #else
+    #define PORT_INFO                     "Preemption through PendSV"
+  #endif
 #endif
 /** @} */
 
@@ -295,12 +291,6 @@
 /* The following code is not processed when the file is included from an
    asm module.*/
 #if !defined(_FROM_ASM_)
-
-/**
- * @brief   Type of a core identifier.
- * @note    Core identifiers have ranges from 0 to @p PORT_CORES_NUMBER - 1.
- */
-typedef uint32_t code_id_t;
 
 /**
  * @brief   Type of stack and memory alignment enforcement.
@@ -352,16 +342,6 @@ struct port_intctx {
  */
 struct port_context {
   struct port_intctx    *sp;
-};
-
-/**
- * @brief   Structure encapsulating all the port-related static data.
- */
-struct port_data {
-  /**
-   * @brief   Pointer to the OS instances indexed by core number.
-   */
-  os_instance_t         *oip[PORT_CORES_NUMBER];
 };
 
 /*===========================================================================*/
@@ -520,13 +500,11 @@ __STATIC_INLINE void port_notify_instance(os_instance_t *oip) {
 
   (void)oip;
 
-  /* Waiting for space into the FIFO.*/
-  while ((SIO->FIFO_ST & SIO_FIFO_ST_RDY) == 0U) {
-    __WFE();
+  /* Sending a reschedule order to the other core if there is space in
+     the FIFO.*/
+  if ((SIO->FIFO_ST & SIO_FIFO_ST_RDY) != 0U) {
+    SIO->FIFO_WR = PORT_FIFO_RESCHEDULE_MESSAGE;
   }
-
-  /* Sending a reschedule order to the other core.*/
-  SIO->FIFO_WR = PORT_FIFO_RESCHEDULE_MESSAGE;
 }
 
 /**
@@ -692,7 +670,7 @@ __STATIC_FORCEINLINE rtcnt_t port_rt_get_counter_value(void) {
  * @brief   Returns a core index.
  * @return              The core identifier from 0 to @p PORT_CORES_NUMBER - 1.
  */
-__STATIC_INLINE code_id_t port_get_core_id(void) {
+__STATIC_INLINE core_id_t port_get_core_id(void) {
 
   return SIO->CPUID;
 }

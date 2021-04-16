@@ -39,24 +39,80 @@
 /* Module exported variables.                                                */
 /*===========================================================================*/
 
-#if (CH_CFG_SMP_MODE != FALSE) || defined(__DOXYGEN__)
 /**
  * @brief   System root object.
  */
 ch_system_t ch_system;
-#endif
 
 /**
- * @brief   Default OS instance.
+ * @brief   Core 0 OS instance.
  */
-os_instance_t ch;
+os_instance_t ch0;
 
 #if (CH_CFG_NO_IDLE_THREAD == FALSE) || defined(__DOXYGEN__)
 /**
- * @brief   Default instance idle thread working area.
+ * @brief   Working area for core 0 idle thread.
  */
-THD_WORKING_AREA(ch_idle_thread_wa, PORT_IDLE_THREAD_STACK_SIZE);
+THD_WORKING_AREA(ch_c0_idle_thread_wa, PORT_IDLE_THREAD_STACK_SIZE);
+
+#if CH_DBG_ENABLE_STACK_CHECK == TRUE
+extern stkalign_t __main_thread_stack_base__, __main_thread_stack_end__;
 #endif
+
+/**
+ * @brief   Core 0 OS instance configuration.
+ */
+const os_instance_config_t ch_core0_cfg = {
+  .name             = "c0",
+#if CH_DBG_ENABLE_STACK_CHECK == TRUE
+  .mainthread_base  = &__main_thread_stack_base__,
+  .mainthread_end   = &__main_thread_stack_end__,
+#elif CH_CFG_USE_DYNAMIC == TRUE
+  .mainthread_base  = NULL,
+  .mainthread_end   = NULL,
+#endif
+#if CH_CFG_NO_IDLE_THREAD == FALSE
+  .idlethread_base  = THD_WORKING_AREA_BASE(ch_c0_idle_thread_wa),
+  .idlethread_end   = THD_WORKING_AREA_END(ch_c0_idle_thread_wa)
+#endif
+};
+#endif
+
+#if (PORT_CORES_NUMBER > 1) || defined(__DOXYGEN__)
+/**
+ * @brief   Core 1 OS instance.
+ */
+os_instance_t ch1;
+
+#if (CH_CFG_NO_IDLE_THREAD == FALSE) || defined(__DOXYGEN__)
+/**
+ * @brief   Working area for core 1 idle thread.
+ */
+THD_WORKING_AREA(ch_c1_idle_thread_wa, PORT_IDLE_THREAD_STACK_SIZE);
+#endif
+
+#if CH_DBG_ENABLE_STACK_CHECK == TRUE
+extern stkalign_t __c1_main_thread_stack_base__, __c1_main_thread_stack_end__;
+#endif
+
+/**
+ * @brief   Core 1 OS instance configuration.
+ */
+const os_instance_config_t ch_core1_cfg = {
+  .name             = "c1",
+#if CH_DBG_ENABLE_STACK_CHECK == TRUE
+  .mainthread_base  = &__c1_main_thread_stack_base__,
+  .mainthread_end   = &__c1_main_thread_stack_end__,
+#elif CH_CFG_USE_DYNAMIC == TRUE
+  .mainthread_base  = NULL,
+  .mainthread_end   = NULL,
+#endif
+#if CH_CFG_NO_IDLE_THREAD == FALSE
+  .idlethread_base  = THD_WORKING_AREA_BASE(ch_c1_idle_thread_wa),
+  .idlethread_end   = THD_WORKING_AREA_END(ch_c1_idle_thread_wa)
+#endif
+};
+#endif /* PORT_CORES_NUMBER > 1 */
 
 /*===========================================================================*/
 /* Module local types.                                                       */
@@ -75,60 +131,59 @@ THD_WORKING_AREA(ch_idle_thread_wa, PORT_IDLE_THREAD_STACK_SIZE);
 /*===========================================================================*/
 
 /**
- * @brief   ChibiOS/RT initialization.
+ * @brief   Waits for the system state to be equal to the specified one.
+ * @note    Can be called before @p chSchObjectInit() in order to wait
+ *          for system initialization by another core.
+ *
+ * @special
+ */
+void chSysWaitSystemState(system_state_t state) {
+
+  while (ch_system.state != state) {
+  }
+}
+
+/**
+ * @brief   System initialization.
  * @details After executing this function the current instructions stream
  *          becomes the main thread.
  * @pre     Interrupts must disabled before invoking this function.
  * @post    The main thread is created with priority @p NORMALPRIO and
  *          interrupts are enabled.
+ * @post    the system is in @p ch_sys_running state.
  *
  * @special
  */
 void chSysInit(void) {
+  unsigned i;
 
-#if CH_CFG_SMP_MODE != FALSE
-  {
-    unsigned i;
-
-    /* System object initialization.*/
-    for (i = 0U; i < PORT_CORES_NUMBER; i++) {
-      ch_system.instances[i] = NULL;
-    }
-
-    /* User system initialization hook.*/
-    CH_CFG_SYSTEM_INIT_HOOK();
+  /* System object initialization.*/
+  ch_system.state = ch_sys_initializing;
+  for (i = 0U; i < PORT_CORES_NUMBER; i++) {
+    ch_system.instances[i] = NULL;
   }
+
+#if (CH_CFG_USE_REGISTRY == TRUE) && (CH_CFG_SMP_MODE == TRUE)
+  /* Registry initialization when SMP mode is enabled.*/
+  ch_queue_init(&ch_system.reglist);
 #endif
+
+#if CH_CFG_USE_TM == TRUE
+  /* Time Measurement initialization.*/
+  __tm_calibration_init();
+#endif
+
+  /* User system initialization hook.*/
+  CH_CFG_SYSTEM_INIT_HOOK();
 
   /* OS library modules.*/
   __oslib_init();
 
   /* Initializing default OS instance.*/
-  {
-#if CH_DBG_ENABLE_STACK_CHECK == TRUE
-    extern stkalign_t __main_thread_stack_base__,
-                      __main_thread_stack_end__;
-#endif
-
-    static const os_instance_config_t default_cfg = {
-      .name             = "c0",
-#if CH_DBG_ENABLE_STACK_CHECK == TRUE
-      .mainthread_base  = &__main_thread_stack_base__,
-      .mainthread_end   = &__main_thread_stack_end__,
-#elif CH_CFG_USE_DYNAMIC == TRUE
-      .mainthread_base  = NULL,
-      .mainthread_end   = NULL,
-#endif
-#if CH_CFG_NO_IDLE_THREAD == FALSE
-      .idlethread_base  = THD_WORKING_AREA_BASE(ch_idle_thread_wa),
-      .idlethread_end   = THD_WORKING_AREA_END(ch_idle_thread_wa)
-#endif
-    };
-
-    chSchObjectInit(&ch, &default_cfg);
-  }
+  chSchObjectInit(&ch0, &ch_core0_cfg);
 
   /* It is alive now.*/
+  ch_system.state = ch_sys_running;
   chSysUnlock();
 }
 
@@ -156,6 +211,15 @@ void chSysHalt(const char *reason) {
 
   /* Halt hook code, usually empty.*/
   CH_CFG_SYSTEM_HALT_HOOK(reason);
+
+#if defined(PORT_SYSTEM_HALT_HOOK)
+  /* Port-related actions, this could include halting other instances
+     via some inter-core messaging or other means.*/
+  PORT_SYSTEM_HALT_HOOK();
+#endif
+
+  /* Entering the halted state.*/
+  ch_system.state = ch_sys_halted;
 
   /* Harmless infinite loop.*/
   while (true) {
@@ -244,21 +308,25 @@ bool chSysIntegrityCheckI(unsigned testmask) {
 
 #if CH_CFG_USE_REGISTRY == TRUE
   if ((testmask & CH_INTEGRITY_REGISTRY) != 0U) {
-    thread_t *tp;
+    ch_queue_t *qp, *rqp;
+
+    /* Registry header, access to this list depends on the current
+       kernel configuration.*/
+    rqp = REG_HEADER(oip);
 
     /* Scanning the ready list forward.*/
     n = (cnt_t)0;
-    tp = oip->rlist.newer;
-    while (tp != (thread_t *)&oip->rlist) {
+    qp = rqp->next;
+    while (qp != rqp) {
       n++;
-      tp = tp->newer;
+      qp = qp->next;
     }
 
     /* Scanning the ready list backward.*/
-    tp = oip->rlist.older;
-    while (tp != (thread_t *)&oip->rlist) {
+    qp = rqp->prev;
+    while (qp != rqp) {
       n--;
-      tp = tp->older;
+      qp = qp->prev;
     }
 
     /* The number of elements must match.*/

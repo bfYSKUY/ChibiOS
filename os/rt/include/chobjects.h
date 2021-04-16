@@ -45,6 +45,16 @@
 /*===========================================================================*/
 
 /**
+ * @brief   Global state of the operating system.
+ */
+typedef enum {
+  ch_sys_uninit         = 0,
+  ch_sys_initializing   = 1,
+  ch_sys_running        = 2,
+  ch_sys_halted         = 3
+} system_state_t;
+
+/**
  * @brief   Type of a Virtual Timer callback function.
  */
 typedef void (*vtfunc_t)(void *p);
@@ -122,21 +132,17 @@ struct ch_thread {
     ch_priority_queue_t pqueue;     /**< @brief Threads ordered queues
                                          element.                           */
   } hdr;
-#if (CH_CFG_USE_REGISTRY == TRUE) || defined(__DOXYGEN__)
-  thread_t              *newer;     /**< @brief Newer registry element.     */
-  thread_t              *older;     /**< @brief Older registry element.     */
-#endif
-  /* End of the fields shared with the ReadyList structure. */
   /**
    * @brief   Processor context.
    */
   struct port_context   ctx;
-#if (CH_CFG_SMP_MODE != FALSE) || defined(__DOXYGEN__)
+#if (CH_CFG_USE_REGISTRY == TRUE) || defined(__DOXYGEN__)
+  ch_queue_t            rqueue;     /**< @brief Registry queue element.     */
+#endif
   /**
    * @brief   OS instance owner of this thread.
    */
   os_instance_t         *owner;
-#endif
 #if (CH_CFG_USE_REGISTRY == TRUE) || defined(__DOXYGEN__)
   /**
    * @brief   Thread name or @p NULL.
@@ -303,17 +309,6 @@ typedef struct ch_ready_list {
    * @note      The priority field must be initialized to zero.
    */
   ch_priority_queue_t   pqueue;
-#if (CH_CFG_USE_REGISTRY == TRUE) || defined(__DOXYGEN__)
-  /**
-   * @brief     Newer registry element.
-   */
-  thread_t              *newer;
-  /**
-   *  @brief    Older registry element.
-   */
-  thread_t              *older;
-#endif
-  /* End of the fields shared with the thread_t structure.*/
   /**
    * @brief     The currently running thread.
    */
@@ -363,6 +358,18 @@ struct ch_os_instance {
    * @brief   Virtual timers delta list header.
    */
   virtual_timers_list_t vtlist;
+#if ((CH_CFG_USE_REGISTRY == TRUE) && (CH_CFG_SMP_MODE == FALSE)) ||        \
+    defined(__DOXYGEN__)
+  /**
+   * @brief   Registry header.
+   * @note    This field is present only if the SMP mode is disabled.
+   */
+  ch_queue_t            reglist;
+#endif
+  /**
+   * @brief   Core associated to this instance.
+   */
+  core_id_t             core_id;
   /**
    * @brief   Main thread descriptor.
    */
@@ -376,12 +383,6 @@ struct ch_os_instance {
    * @brief   Trace buffer.
    */
   trace_buffer_t        trace_buffer;
-#endif
-#if (CH_CFG_USE_TM == TRUE) || defined(__DOXYGEN__)
-  /**
-   * @brief   Time measurement calibration data.
-   */
-  tm_calibration_t      tmc;
 #endif
 #if (CH_DBG_STATISTICS == TRUE) || defined(__DOXYGEN__)
   /**
@@ -397,15 +398,32 @@ struct ch_os_instance {
   CH_CFG_OS_INSTANCE_EXTRA_FIELDS
 };
 
-#if (CH_CFG_SMP_MODE != FALSE) || defined(__DOXYGEN__)
 /**
  * @brief   Type of system data structure.
  */
 typedef struct ch_system {
   /**
+   * @brief   Operating system state.
+   */
+  system_state_t        state;
+  /**
    * @brief   Initialized OS instances or @p NULL.
    */
   os_instance_t         *instances[PORT_CORES_NUMBER];
+#if (CH_CFG_USE_TM == TRUE) || defined(__DOXYGEN__)
+  /**
+   * @brief   Time measurement calibration data.
+   */
+  tm_calibration_t      tmc;
+#endif
+#if ((CH_CFG_USE_REGISTRY == TRUE) && (CH_CFG_SMP_MODE == TRUE)) ||         \
+    defined(__DOXYGEN__)
+  /**
+   * @brief   Registry header.
+   * @note    This field is present only if the SMP mode is enabled.
+   */
+  ch_queue_t            reglist;
+#endif
 #if defined(PORT_SYSTEM_EXTRA_FIELDS) || defined(__DOXYGEN__)
   /* Extra fields from port layer.*/
   PORT_SYSTEM_EXTRA_FIELDS
@@ -413,7 +431,6 @@ typedef struct ch_system {
   /* Extra fields from configuration.*/
   CH_CFG_SYSTEM_EXTRA_FIELDS
 } ch_system_t;
-#endif
 
 /*===========================================================================*/
 /* Module macros.                                                            */

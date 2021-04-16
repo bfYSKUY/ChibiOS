@@ -95,9 +95,7 @@ static thread_t *__sch_ready_behind(os_instance_t *oip, thread_t *tp) {
   chDbgAssert((tp->state != CH_STATE_READY) &&
               (tp->state != CH_STATE_FINAL),
               "invalid state");
-#if CH_CFG_SMP_MODE != FALSE
   chDbgAssert(tp->owner == oip, "invalid core");
-#endif
 
   /* Tracing the event.*/
   __trace_ready(tp, tp->u.rdymsg);
@@ -132,9 +130,7 @@ static thread_t *__sch_ready_ahead(os_instance_t *oip, thread_t *tp) {
   chDbgAssert((tp->state != CH_STATE_READY) &&
               (tp->state != CH_STATE_FINAL),
               "invalid state");
-#if CH_CFG_SMP_MODE != FALSE
   chDbgAssert(tp->owner == oip, "invalid core");
-#endif
 
   /* Tracing the event.*/
   __trace_ready(tp, tp->u.rdymsg);
@@ -299,17 +295,17 @@ void ch_sch_prio_insert(ch_queue_t *tp, ch_queue_t *qp) {
  */
 void chSchObjectInit(os_instance_t *oip,
                      const os_instance_config_t *oicp) {
+  core_id_t core_id;
 
-#if CH_CFG_SMP_MODE != FALSE
   /* Registering into the global system structure.*/
-  {
-    code_id_t core_id = port_get_core_id();
-
-    chDbgAssert(ch_system.instances[core_id] == NULL, "instance already registered");
-
-    ch_system.instances[core_id] = oip;
-  }
+#if CH_CFG_SMP_MODE != FALSE
+  core_id = port_get_core_id();
+#else
+  core_id = 0U;
 #endif
+  chDbgAssert(ch_system.instances[core_id] == NULL, "instance already registered");
+  ch_system.instances[core_id] = oip;
+  oip->core_id = core_id;
 
   /* Port initialization for the current instance.*/
   port_init(oip);
@@ -317,10 +313,9 @@ void chSchObjectInit(os_instance_t *oip,
   /* Ready list initialization.*/
   ch_pqueue_init(&oip->rlist.pqueue);
 
-  /* Registry initialization.*/
-#if CH_CFG_USE_REGISTRY == TRUE
-  oip->rlist.newer = (thread_t *)&oip->rlist;
-  oip->rlist.older = (thread_t *)&oip->rlist;
+#if (CH_CFG_USE_REGISTRY == TRUE) && (CH_CFG_SMP_MODE == FALSE)
+  /* Registry initialization when SMP mode is disabled.*/
+  ch_queue_init(&oip->reglist);
 #endif
 
   /* Virtual timers list initialization.*/
@@ -332,11 +327,6 @@ void chSchObjectInit(os_instance_t *oip,
 #if CH_DBG_TRACE_MASK != CH_DBG_TRACE_MASK_DISABLED
   /* Trace buffer initialization.*/
   __trace_init(oip);
-#endif
-
-  /* Time Measurement initialization.*/
-#if CH_CFG_USE_TM == TRUE
-  __tm_calibration_init(&oip->tmc);
 #endif
 
   /* Statistics initialization.*/
@@ -435,9 +425,7 @@ void chSchGoSleepS(tstate_t newstate) {
   chDbgCheckClassS();
 
   chDbgAssert(otp != chSysGetIdleThreadX(), "sleeping in idle thread");
-#if CH_CFG_SMP_MODE != FALSE
   chDbgAssert(otp->owner == oip, "invalid core");
-#endif
 
   /* New state.*/
   otp->state = newstate;
