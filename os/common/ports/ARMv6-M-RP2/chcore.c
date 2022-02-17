@@ -18,10 +18,10 @@
 */
 
 /**
- * @file    ARMv6-M/chcore.c
- * @brief   ARMv6-M port code.
+ * @file    ARMv6-M-RP2/chcore.c
+ * @brief   ARMv6-M-RP2 port code.
  *
- * @addtogroup ARMv6_M_RP2_CORE
+ * @addtogroup ARMV6M_RP2_CORE
  * @{
  */
 
@@ -46,6 +46,29 @@
 /*===========================================================================*/
 /* Module local functions.                                                   */
 /*===========================================================================*/
+
+/**
+ * @brief   Remote replica of @p chSysHalt().
+ * @note    The difference is that it does not change the system state and
+ *          does not call the port hook again.
+ */
+void port_local_halt(void) {
+
+  port_disable();
+
+  /* Logging the event.*/
+  __trace_halt("remote panic");
+
+  /* Pointing to the passed message.*/
+  currcore->dbg.panic_msg = "remote panic";
+
+  /* Halt hook code, usually empty.*/
+  CH_CFG_SYSTEM_HALT_HOOK(reason);
+
+  /* Harmless infinite loop.*/
+  while (true) {
+  }
+}
 
 /*===========================================================================*/
 /* Module interrupt handlers.                                                */
@@ -96,7 +119,7 @@ void PendSV_Handler(void) {
   /* Writing back the modified PSP value.*/
   __set_PSP((uint32_t)ctxp);
 
-#if CH_CFG_SMP_MODE != FALSE
+#if CH_CFG_SMP_MODE== TRUE
    /* Interrupts have been re-enabled in the ASM part but the spinlock is
       still taken, releasing it.*/
    port_spinlock_release();
@@ -104,7 +127,7 @@ void PendSV_Handler(void) {
 }
 #endif /* CORTEX_ALTERNATE_SWITCH */
 
-#if (CH_CFG_SMP_MODE != FALSE) || defined(__DOXYGEN__)
+#if (CH_CFG_SMP_MODE== TRUE) || defined(__DOXYGEN__)
 /**
  * @brief   FIFO interrupt handler for core 0.
  *
@@ -150,12 +173,13 @@ CH_IRQ_HANDLER(Vector80) {
   /* Read FIFO is fully emptied.*/
   while ((SIO->FIFO_ST & SIO_FIFO_ST_VLD) != 0U) {
     uint32_t message = SIO->FIFO_RD;
+    if (message == PORT_FIFO_PANIC_MESSAGE) {
+      port_local_halt();
+    }
 #if defined(PORT_HANDLE_FIFO_MESSAGE)
     if (message != PORT_FIFO_RESCHEDULE_MESSAGE) {
       PORT_HANDLE_FIFO_MESSAGE(0U, message);
     }
-#else
-    (void)message;
 #endif
   }
 
@@ -164,7 +188,7 @@ CH_IRQ_HANDLER(Vector80) {
 
   CH_IRQ_EPILOGUE();
 }
-#endif /* CH_CFG_SMP_MODE != FALSE */
+#endif /* CH_CFG_SMP_MODE== TRUE */
 
 /*===========================================================================*/
 /* Module exported functions.                                                */
@@ -178,22 +202,18 @@ CH_IRQ_HANDLER(Vector80) {
  * @notapi
  */
 void port_init(os_instance_t *oip) {
-  uint32_t core_id = port_get_core_id();
-
-  /* Port-related info for each OS instance.*/
-  oip->core_id = core_id;
 
   /* Activating timer for this instance.*/
   port_timer_enable(oip);
 
-#if CH_CFG_SMP_MODE != FALSE
+#if CH_CFG_SMP_MODE== TRUE
   /* FIFO handlers for each core.*/
   SIO->FIFO_ST = SIO_FIFO_ST_ROE | SIO_FIFO_ST_WOF;
-  if (core_id == 0U) {
+  if (oip->core_id == 0U) {
     NVIC_SetPriority(15, CORTEX_MINIMUM_PRIORITY);
     NVIC_EnableIRQ(15);
   }
-  else if (core_id == 1U) {
+  else if (oip->core_id == 1U) {
     NVIC_SetPriority(16, CORTEX_MINIMUM_PRIORITY);
     NVIC_EnableIRQ(16);
   }
@@ -252,7 +272,7 @@ void __port_irq_epilogue(uint32_t lr) {
   }
 }
 
-#if (CH_CFG_SMP_MODE != FALSE) || defined(__DOXYGEN__)
+#if (CH_CFG_SMP_MODE== TRUE) || defined(__DOXYGEN__)
 /**
  * @brief   Takes the kernel spinlock.
  */
@@ -268,6 +288,6 @@ void __port_spinlock_release(void) {
 
   port_spinlock_release();
 }
-#endif /* CH_CFG_SMP_MODE != FALSE */
+#endif /* CH_CFG_SMP_MODE== TRUE */
 
 /** @} */

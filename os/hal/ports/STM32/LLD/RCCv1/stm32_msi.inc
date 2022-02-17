@@ -30,30 +30,30 @@
  * @name    RCC_CR register bits definitions
  * @{
  */
-#define STM32_MSIRANGE_MASK     (15 << 4)   /**< MSIRANGE field mask.       */
-#define STM32_MSIRANGE_100K     (0 << 4)    /**< 100kHz nominal.            */
-#define STM32_MSIRANGE_200K     (1 << 4)    /**< 200kHz nominal.            */
-#define STM32_MSIRANGE_400K     (2 << 4)    /**< 400kHz nominal.            */
-#define STM32_MSIRANGE_800K     (3 << 4)    /**< 800kHz nominal.            */
-#define STM32_MSIRANGE_1M       (4 << 4)    /**< 1MHz nominal.              */
-#define STM32_MSIRANGE_2M       (5 << 4)    /**< 2MHz nominal.              */
-#define STM32_MSIRANGE_4M       (6 << 4)    /**< 4MHz nominal.              */
-#define STM32_MSIRANGE_8M       (7 << 4)    /**< 8MHz nominal.              */
-#define STM32_MSIRANGE_16M      (8 << 4)    /**< 16MHz nominal.             */
-#define STM32_MSIRANGE_24M      (9 << 4)    /**< 24MHz nominal.             */
-#define STM32_MSIRANGE_32M      (10 << 4)   /**< 32MHz nominal.             */
-#define STM32_MSIRANGE_48M      (11 << 4)   /**< 48MHz nominal.             */
+#define STM32_MSIRANGE_MASK     (15U << RCC_CR_MSIRANGE_Pos)
+#define STM32_MSIRANGE_100K     (0U << RCC_CR_MSIRANGE_Pos)
+#define STM32_MSIRANGE_200K     (1U << RCC_CR_MSIRANGE_Pos)
+#define STM32_MSIRANGE_400K     (2U << RCC_CR_MSIRANGE_Pos)
+#define STM32_MSIRANGE_800K     (3U << RCC_CR_MSIRANGE_Pos)
+#define STM32_MSIRANGE_1M       (4U << RCC_CR_MSIRANGE_Pos)
+#define STM32_MSIRANGE_2M       (5U << RCC_CR_MSIRANGE_Pos)
+#define STM32_MSIRANGE_4M       (6U << RCC_CR_MSIRANGE_Pos)
+#define STM32_MSIRANGE_8M       (7U << RCC_CR_MSIRANGE_Pos)
+#define STM32_MSIRANGE_16M      (8U << RCC_CR_MSIRANGE_Pos)
+#define STM32_MSIRANGE_24M      (9U << RCC_CR_MSIRANGE_Pos)
+#define STM32_MSIRANGE_32M      (10U << RCC_CR_MSIRANGE_Pos)
+#define STM32_MSIRANGE_48M      (11U << RCC_CR_MSIRANGE_Pos)
 /** @} */
 
 /**
  * @name    RCC_CSR register bits definitions
  * @{
  */
-#define STM32_MSISRANGE_MASK    (15 << 8)   /**< MSISRANGE field mask.      */
-#define STM32_MSISRANGE_1M      (4 << 8)    /**< 1MHz nominal.              */
-#define STM32_MSISRANGE_2M      (5 << 8)    /**< 2MHz nominal.              */
-#define STM32_MSISRANGE_4M      (6 << 8)    /**< 4MHz nominal.              */
-#define STM32_MSISRANGE_8M      (7 << 8)    /**< 8MHz nominal.              */
+#define STM32_MSISRANGE_MASK    (15U << RCC_CSR_MSISRANGE_Pos)
+#define STM32_MSISRANGE_1M      (4U << RCC_CSR_MSISRANGE_Pos)
+#define STM32_MSISRANGE_2M      (5U << RCC_CSR_MSISRANGE_Pos)
+#define STM32_MSISRANGE_4M      (6U << RCC_CSR_MSISRANGE_Pos)
+#define STM32_MSISRANGE_8M      (7U << RCC_CSR_MSISRANGE_Pos)
 /** @} */
 
 /*===========================================================================*/
@@ -61,8 +61,8 @@
 /*===========================================================================*/
 
 /* Registry checks for robustness.*/
-#if !defined(STM32_HAS_MSI)
-#error "STM32_HAS_MSI not defined in stm32_registry.h"
+#if !defined(STM32_RCC_HAS_MSI)
+#error "STM32_RCC_HAS_MSI not defined in stm32_registry.h"
 #endif
 
 /* Checks on configurations.*/
@@ -90,29 +90,41 @@
  * @brief   MSI frequency.
  */
 #if STM32_MSIRANGE == STM32_MSIRANGE_100K
-  #define STM32_MSICLK              100000
+  #define STM32_MSICLK              100000U
+
 #elif STM32_MSIRANGE == STM32_MSIRANGE_200K
-  #define STM32_MSICLK              200000
+  #define STM32_MSICLK              200000U
+
 #elif STM32_MSIRANGE == STM32_MSIRANGE_400K
-  #define STM32_MSICLK              400000
+  #define STM32_MSICLK              400000U
+
 #elif STM32_MSIRANGE == STM32_MSIRANGE_800K
-  #define STM32_MSICLK              800000
+  #define STM32_MSICLK              800000U
+
 #elif STM32_MSIRANGE == STM32_MSIRANGE_1M
-  #define STM32_MSICLK              1000000
+  #define STM32_MSICLK              1000000U
+
 #elif STM32_MSIRANGE == STM32_MSIRANGE_2M
-  #define STM32_MSICLK              2000000
+  #define STM32_MSICLK              2000000U
+
 #elif STM32_MSIRANGE == STM32_MSIRANGE_4M
-  #define STM32_MSICLK              4000000
+  #define STM32_MSICLK              4000000U
+
 #elif STM32_MSIRANGE == STM32_MSIRANGE_8M
-  #define STM32_MSICLK              8000000
+  #define STM32_MSICLK              8000000U
+
 #elif STM32_MSIRANGE == STM32_MSIRANGE_16M
-  #define STM32_MSICLK              16000000
+  #define STM32_MSICLK              16000000U
+
 #elif STM32_MSIRANGE == STM32_MSIRANGE_24M
-  #define STM32_MSICLK              24000000
+  #define STM32_MSICLK              24000000U
+
 #elif STM32_MSIRANGE == STM32_MSIRANGE_32M
-  #define STM32_MSICLK              32000000
+  #define STM32_MSICLK              32000000U
+
 #elif STM32_MSIRANGE == STM32_MSIRANGE_48M
-  #define STM32_MSICLK              48000000
+  #define STM32_MSICLK              48000000U
+
 #else
   #error "invalid STM32_MSIRANGE value specified"
 #endif
@@ -121,15 +133,24 @@
  * @brief   MSIS frequency.
  */
 #if STM32_MSISRANGE == STM32_MSISRANGE_1M
-  #define STM32_MSISCLK             1000000
+  #define STM32_MSISCLK             1000000U
+
 #elif STM32_MSISRANGE == STM32_MSISRANGE_2M
-  #define STM32_MSISCLK             2000000
+  #define STM32_MSISCLK             2000000U
+
 #elif STM32_MSISRANGE == STM32_MSISRANGE_4M
-  #define STM32_MSISCLK             4000000
+  #define STM32_MSISCLK             4000000U
+
 #elif STM32_MSISRANGE == STM32_MSISRANGE_8M
-  #define STM32_MSISCLK             8000000
+  #define STM32_MSISCLK             8000000U
+
 #else
   #error "invalid STM32_MSISRANGE value specified"
+#endif
+
+/* Some headers do not have this definition.*/
+#if !defined(RCC_CFGR_SWS_MSI)
+#define RCC_CFGR_SWS_MSI            0U
 #endif
 
 /*===========================================================================*/
@@ -144,8 +165,39 @@
 /* Driver local functions.                                                   */
 /*===========================================================================*/
 
-static inline void msi_init(void) {
-  uint32_t cr;
+__STATIC_INLINE void msi_enable(void) {
+
+  RCC->CR |= RCC_CR_MSION;
+  while ((RCC->CR & RCC_CR_MSIRDY) == 0U) {
+    /* Wait until MSI is stable.*/
+  }
+}
+
+__STATIC_INLINE void msi_disable(void) {
+
+  RCC->CR &= ~RCC_CR_MSION;
+}
+
+__STATIC_INLINE void msi_reset(void) {
+
+  /* Resetting MSI defaults.
+     Note from RM0432: MSIRANGE can be modified when MSI is OFF (MSION=0)
+     or when MSI is ready (MSIRDY=1). MSIRANGE must NOT be modified when
+     MSI is ON and NOT ready (MSION=1 and MSIRDY=0).*/
+  RCC->CR = (RCC->CR & ~RCC_CR_MSIRANGE_Msk) | RCC_CR_MSIRANGE_6;
+
+  /* Making sure MSI is active and ready.*/
+  msi_enable();
+
+  /* Clocking from MSI, in case MSI was not the default source.*/
+  RCC->CFGR = RCC_CFGR_SW_MSI;
+  while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_MSI) {
+    /* Wait until MSI is selected.*/
+  }
+}
+
+__STATIC_INLINE void msi_init(void) {
+  uint32_t cr, csr;
 
   /* Initial clocks setup and wait for MSI stabilization, the MSI clock is
      always enabled because it is the fall back clock when PLL the fails.
@@ -159,19 +211,24 @@ static inline void msi_init(void) {
   cr = STM32_MSIRANGE | RCC_CR_MSION;
 #endif
   RCC->CR = cr;
-  while ((RCC->CR & RCC_CR_MSIRDY) == 0)
-    ;                                       /* Wait until MSI is stable.    */
+  while ((RCC->CR & RCC_CR_MSIRDY) == 0U) {
+    /* Wait until MSI is stable.*/
+  }
 
   /* Clocking from MSI, in case MSI was not the default source.*/
-  RCC->CFGR = 0;
+  RCC->CFGR = 0U;
   while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_MSI)
     ;                                       /* Wait until MSI is selected.  */
 
   /* Updating MSISRANGE value. MSISRANGE can be set only when MSIRGSEL is high.
      This range is used exiting the Standby mode until MSIRGSEL is set.*/
-  cr       |= RCC_CR_MSIRGSEL;
-  RCC->CR   = cr;
-  RCC->CSR |= STM32_MSISRANGE;
+  cr      |= RCC_CR_MSIRGSEL;
+  RCC->CR  = cr;
+
+  csr      = RCC->CSR;
+  csr     &= ~STM32_MSISRANGE_MASK;
+  csr     |= STM32_MSISRANGE;
+  RCC->CSR = csr;
 }
 
 /*===========================================================================*/

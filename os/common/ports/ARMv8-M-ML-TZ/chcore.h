@@ -18,10 +18,10 @@
 */
 
 /**
- * @file    ARMv8-M-ML/chcore.h
- * @brief   ARMv8-M mainline port macros and structures.
+ * @file    ARMv8-M-ML-TZ/chcore.h
+ * @brief   ARMv8-M MainLine port macros and structures.
  *
- * @addtogroup ARMV8M_ML_CORE
+ * @addtogroup ARMV8M_ML_TZ_CORE
  * @{
  */
 
@@ -175,21 +175,11 @@
 #endif
 
 /**
- * @brief   Enables an alternative timer implementation.
- * @details Usually the port uses a timer interface defined in the file
- *          @p chcore_timer.h, if this option is enabled then the file
- *          @p chcore_timer_alt.h is included instead.
- */
-#if !defined(PORT_USE_ALT_TIMER)
-#define PORT_USE_ALT_TIMER              FALSE
-#endif
-
-/**
  * @brief   Stack size for the system idle thread.
  * @details This size depends on the idle thread implementation, usually
  *          the idle thread should take no more space than those reserved
  *          by @p PORT_INT_REQUIRED_STACK.
- * @note    In this port it is set to 16 because the idle thread does have
+ * @note    In this port it is set to 64 because the idle thread does have
  *          a stack frame when compiling without optimizations. You may
  *          reduce this value to zero when compiling with optimizations.
  */
@@ -379,14 +369,6 @@
 #if !defined(_FROM_ASM_)
 
 /**
- * @brief   Type of stack and memory alignment enforcement.
- * @note    In this architecture the stack alignment is enforced to 64 bits,
- *          32 bits alignment is supported by hardware but deprecated by ARM,
- *          the implementation choice is to not offer the option.
- */
-typedef uint64_t stkalign_t;
-
-/**
  * @brief   Interrupt saved context.
  * @details This structure represents the stack frame saved during a
  *          preemption-capable interrupt handler.
@@ -498,6 +480,11 @@ struct port_context {
   (((n) >= CORTEX_MAX_KERNEL_PRIORITY) && ((n) <= CORTEX_PRIORITY_PENDSV))
 
 /**
+ * @brief   Optimized thread function declaration macro.
+ */
+#define PORT_THD_FUNCTION(tname, arg) void tname(void *arg)
+
+/**
  * @brief   Initialization of stack check part of thread context.
  */
 #if (CH_DBG_ENABLE_STACK_CHECK == TRUE) || defined(__DOXYGEN__)
@@ -547,8 +534,8 @@ struct port_context {
  */
 #define PORT_SETUP_CONTEXT(tp, wbase, wtop, pf, arg) do {                   \
   PORT_SETUP_CONTEXT_BASEPRI_NS(tp);                                        \
-  (tp)->ctx.sp = (struct port_intctx *)((uint8_t *)(wtop) -                 \
-                                        sizeof (struct port_intctx));       \
+  (tp)->ctx.sp = (struct port_intctx *)(void *)                             \
+                   ((uint8_t *)(wtop) - sizeof (struct port_intctx));       \
   (tp)->ctx.basepri     = CORTEX_BASEPRI_KERNEL;                            \
   (tp)->ctx.r5          = (uint32_t)(arg);                                  \
   (tp)->ctx.r4          = (uint32_t)(pf);                                   \
@@ -797,12 +784,16 @@ __STATIC_FORCEINLINE rtcnt_t port_rt_get_counter_value(void) {
   return DWT->CYCCNT;
 }
 
+#endif /* !defined(_FROM_ASM_) */
+
+/*===========================================================================*/
+/* Module late inclusions.                                                   */
+/*===========================================================================*/
+
+#if !defined(_FROM_ASM_)
+
 #if CH_CFG_ST_TIMEDELTA > 0
-#if PORT_USE_ALT_TIMER == FALSE
 #include "chcore_timer.h"
-#else /* PORT_USE_ALT_TIMER != FALSE */
-#include "chcore_timer_alt.h"
-#endif /* PORT_USE_ALT_TIMER != FALSE */
 #endif /* CH_CFG_ST_TIMEDELTA > 0 */
 
 #endif /* !defined(_FROM_ASM_) */

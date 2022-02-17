@@ -20,6 +20,8 @@
 #include "shell.h"
 #include "chprintf.h"
 
+#define _offsetof(type, m) ((size_t)((char *)&((type)0)->m - (char *)0))
+
 #define SHELL_WA_SIZE   THD_WORKING_AREA_SIZE(2048)
 
 static const ShellCommand commands[] = {
@@ -27,14 +29,14 @@ static const ShellCommand commands[] = {
 };
 
 static const ShellConfig shell_cfg1 = {
-  (BaseSequentialStream *)&SIOD1,
+  (BaseSequentialStream *)&SIOD0,
   commands
 };
 
 /*
  * Green LED blinker thread, times are in milliseconds.
  */
-static THD_WORKING_AREA(waThreadTimer, 128);
+static CH_SYS_CORE1_MEMORY THD_WORKING_AREA(waThreadTimer, 128);
 static THD_FUNCTION(ThreadTimer, arg) {
   extern semaphore_t blinker_sem;
 
@@ -56,7 +58,7 @@ void c1_main(void) {
    * system initialization on the other side.
    */
   chSysWaitSystemState(ch_sys_running);
-  chSchObjectInit(&ch1, &ch_core1_cfg);
+  chInstanceObjectInit(&ch1, &ch_core1_cfg);
 
   /* It is alive now.*/
   chSysUnlock();
@@ -68,10 +70,10 @@ void c1_main(void) {
   palSetLineMode(1U, PAL_MODE_ALTERNATE_UART);
 
   /*
-   * Activates the Serial or SIO driver using the default configuration.
+   * Activates the UART0 SIO driver using the default configuration.
    */
-  sioStart(&SIOD1, NULL);
-  sioStartOperation(&SIOD1, NULL);
+  sioStart(&SIOD0, NULL);
+  sioStartOperation(&SIOD0, NULL);
 
   /*
    * Creates the timer thread.

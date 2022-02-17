@@ -21,7 +21,7 @@
  * @file    ARMv6-M/chcore.h
  * @brief   ARMv6-M port macros and structures.
  *
- * @addtogroup ARMv6_M_CORE
+ * @addtogroup ARMV6M_CORE
  * @{
  */
 
@@ -157,16 +157,6 @@
 #endif
 
 /**
- * @brief   Enables an alternative timer implementation.
- * @details Usually the port uses a timer interface defined in the file
- *          @p chcore_timer.h, if this option is enabled then the file
- *          @p chcore_timer_alt.h is included instead.
- */
-#if !defined(PORT_USE_ALT_TIMER)
-#define PORT_USE_ALT_TIMER              FALSE
-#endif
-
-/**
  * @brief   Enables the use of the WFI instruction in the idle thread loop.
  */
 #if !defined(CORTEX_ENABLE_WFI_IDLE)
@@ -269,14 +259,6 @@
 #if !defined(_FROM_ASM_)
 
 /**
- * @brief   Type of stack and memory alignment enforcement.
- * @note    In this architecture the stack alignment is enforced to 64 bits,
- *          32 bits alignment is supported by hardware but deprecated by ARM,
- *          the implementation choice is to not offer the option.
- */
-typedef uint64_t stkalign_t;
-
-/**
  * @brief   Interrupt saved context.
  * @details This structure represents the stack frame saved during a
  *          preemption-capable interrupt handler.
@@ -337,17 +319,22 @@ struct port_context {
   (((n) >= CORTEX_MAX_KERNEL_PRIORITY) && ((n) < CORTEX_PRIORITY_LEVELS))
 
 /**
+ * @brief   Optimized thread function declaration macro.
+ */
+#define PORT_THD_FUNCTION(tname, arg) void tname(void *arg)
+
+/**
  * @brief   Platform dependent part of the @p chThdCreateI() API.
  * @details This code usually setup the context switching frame represented
  *          by an @p port_intctx structure.
  */
 #define PORT_SETUP_CONTEXT(tp, wbase, wtop, pf, arg) do {                   \
-  (tp)->ctx.sp = (struct port_intctx *)((uint8_t *)(wtop) -                 \
-                                        sizeof (struct port_intctx));       \
+  (tp)->ctx.sp = (struct port_intctx *)(void *)                             \
+                   ((uint8_t *)(wtop) - sizeof (struct port_intctx));       \
   (tp)->ctx.sp->r4 = (uint32_t)(pf);                                        \
   (tp)->ctx.sp->r5 = (uint32_t)(arg);                                       \
   (tp)->ctx.sp->lr = (uint32_t)__port_thread_start;                         \
-} while (0)
+} while (false)
 
 /**
  * @brief   Computes the thread working area global size.
@@ -428,11 +415,11 @@ struct port_context {
 #else
   #define port_switch(ntp, otp) do {                                        \
     struct port_intctx *r13 = (struct port_intctx *)__get_PSP();            \
-    if ((stkalign_t *)(r13 - 1) < (otp)->wabase) {                          \
+    if ((stkalign_t *)(void *)(r13 - 1) < (otp)->wabase) {                  \
       chSysHalt("stack overflow");                                          \
     }                                                                       \
     __port_switch(ntp, otp);                                                \
-  } while (0)
+  } while (false)
 #endif
 
 /*===========================================================================*/
@@ -451,14 +438,6 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif
-
-#if CH_CFG_ST_TIMEDELTA > 0
-#if PORT_USE_ALT_TIMER == FALSE
-#include "chcore_timer.h"
-#else /* PORT_USE_ALT_TIMER != FALSE */
-#include "chcore_timer_alt.h"
-#endif /* PORT_USE_ALT_TIMER != FALSE */
-#endif /* CH_CFG_ST_TIMEDELTA > 0 */
 
 /*===========================================================================*/
 /* Module inline functions.                                                  */
@@ -576,6 +555,18 @@ static inline void port_wait_for_interrupt(void) {
   __WFI();
 #endif
 }
+
+#endif /* !defined(_FROM_ASM_) */
+
+/*===========================================================================*/
+/* Module late inclusions.                                                   */
+/*===========================================================================*/
+
+#if !defined(_FROM_ASM_)
+
+#if CH_CFG_ST_TIMEDELTA > 0
+#include "chcore_timer.h"
+#endif /* CH_CFG_ST_TIMEDELTA > 0 */
 
 #endif /* !defined(_FROM_ASM_) */
 

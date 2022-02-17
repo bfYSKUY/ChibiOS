@@ -3,8 +3,9 @@ PORTSRC = $(CHIBIOS)/os/common/ports/ARMv8-M-ML-TZ/chcore.c
           
 PORTASM = $(CHIBIOS)/os/common/ports/ARMv8-M-ML-TZ/compilers/GCC/chcoreasm.S
 
-PORTINC = $(CHIBIOS)/os/common/ports/ARMv8-M-ML-TZ \
-          $(CHIBIOS)/os/common/ports/ARMv8-M-ML-TZ/compilers/GCC
+PORTINC = $(CHIBIOS)/os/common/portability/GCC \
+          $(CHIBIOS)/os/common/ports/ARM-common \
+          $(CHIBIOS)/os/common/ports/ARMv8-M-ML-TZ
 
 # Shared variables
 ALLXASMSRC += $(PORTASM)

@@ -113,16 +113,6 @@
 #define PORT_INT_REQUIRED_STACK         16384
 #endif
 
-/**
- * @brief   Enables an alternative timer implementation.
- * @details Usually the port uses a timer interface defined in the file
- *          @p chcore_timer.h, if this option is enabled then the file
- *          @p chcore_timer_alt.h is included instead.
- */
-#if !defined(PORT_USE_ALT_TIMER) || defined(__DOXYGEN__)
-#define PORT_USE_ALT_TIMER              FALSE
-#endif
-
 /*===========================================================================*/
 /* Derived constants and error checks.                                       */
 /*===========================================================================*/
@@ -189,7 +179,7 @@ struct port_context {
 
 #define APUSH(p, a) do {                                                    \
   (p) -= sizeof(void *);                                                    \
-  *(void **)(p) = (void*)(a);                                               \
+  *(void **)(void *)(p) = (void*)(a);                                       \
 } while (false)
 
 /* Darwin requires the stack to be aligned to a 16-byte boundary at
@@ -197,7 +187,7 @@ struct port_context {
  * to save MMX registers). This aligns to 'mod' module 16, so that we'll end
  * up with the right alignment after pushing the args. */
 #define AALIGN(p, mask, mod)                                                \
-  p = (void *)((((uint32_t)(p) - (uint32_t)(mod)) & ~(uint32_t)(mask)) + (uint32_t)(mod)) \
+  p = (void *)((((uint32_t)(p) - (uint32_t)(mod)) & ~(uint32_t)(mask)) + (uint32_t)(mod))
 
 /**
  * @brief   Platform dependent part of the @p chThdCreateI() API.
@@ -214,12 +204,12 @@ struct port_context {
   APUSH(esp, pf);                                                           \
   APUSH(esp, 0);                                                            \
   esp -= sizeof(struct port_intctx);                                        \
-  ((struct port_intctx *)esp)->eip = (void *)_port_thread_start;            \
-  ((struct port_intctx *)esp)->ebx = NULL;                                  \
-  ((struct port_intctx *)esp)->edi = NULL;                                  \
-  ((struct port_intctx *)esp)->esi = NULL;                                  \
-  ((struct port_intctx *)esp)->ebp = (void *)savebp;                        \
-  (tp)->ctx.sp = (struct port_intctx *)esp;                                 \
+  ((struct port_intctx *)(void *)esp)->eip = (void *)_port_thread_start;    \
+  ((struct port_intctx *)(void *)esp)->ebx = NULL;                          \
+  ((struct port_intctx *)(void *)esp)->edi = NULL;                          \
+  ((struct port_intctx *)(void *)esp)->esi = NULL;                          \
+  ((struct port_intctx *)(void *)esp)->ebp = (void *)savebp;                \
+  (tp)->ctx.sp = (struct port_intctx *)(void *)esp;                         \
   /*lint -restore*/                                                         \
 }
 
@@ -459,11 +449,7 @@ static inline void port_wait_for_interrupt(void) {
 #if !defined(_FROM_ASM_)
 
 #if CH_CFG_ST_TIMEDELTA > 0
-#if !PORT_USE_ALT_TIMER
 #include "chcore_timer.h"
-#else /* PORT_USE_ALT_TIMER */
-#include "chcore_timer_alt.h"
-#endif /* PORT_USE_ALT_TIMER */
 #endif /* CH_CFG_ST_TIMEDELTA > 0 */
 
 #endif /* !defined(_FROM_ASM_) */

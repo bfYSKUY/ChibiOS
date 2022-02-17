@@ -48,6 +48,8 @@
  * @{
  */
 
+#include <string.h>
+
 #include "ch.h"
 
 /*===========================================================================*/
@@ -130,19 +132,18 @@ thread_t *__thd_object_init(os_instance_t *oip,
 
 #if (CH_DBG_FILL_THREADS == TRUE) || defined(__DOXYGEN__)
 /**
- * @brief   Memory fill utility.
+ * @brief   Stack fill utility.
  *
  * @param[in] startp    first address to fill
  * @param[in] endp      last address to fill +1
- * @param[in] v         filler value
  *
  * @notapi
  */
-void __thd_memfill(uint8_t *startp, uint8_t *endp, uint8_t v) {
+void __thd_stackfill(uint8_t *startp, uint8_t *endp) {
 
-  while (startp < endp) {
-    *startp++ = v;
-  }
+  do {
+    *startp++ = CH_DBG_STACK_FILL_VALUE;
+  } while (likely(startp < endp));
 }
 #endif /* CH_DBG_FILL_THREADS */
 
@@ -183,8 +184,8 @@ thread_t *chThdCreateSuspendedI(const thread_descriptor_t *tdp) {
   /* The thread structure is laid out in the upper part of the thread
      workspace. The thread position structure is aligned to the required
      stack alignment because it represents the stack top.*/
-  tp = (thread_t *)((uint8_t *)tdp->wend -
-                    MEM_ALIGN_NEXT(sizeof (thread_t), PORT_STACK_ALIGN));
+  tp = threadref(((uint8_t *)tdp->wend -
+                 MEM_ALIGN_NEXT(sizeof (thread_t), PORT_STACK_ALIGN)));
 
 #if (CH_DBG_ENABLE_STACK_CHECK == TRUE) || (CH_CFG_USE_DYNAMIC == TRUE)
   /* Stack boundary.*/
@@ -233,9 +234,7 @@ thread_t *chThdCreateSuspended(const thread_descriptor_t *tdp) {
 #endif
 
 #if CH_DBG_FILL_THREADS == TRUE
-  __thd_memfill((uint8_t *)tdp->wbase,
-                (uint8_t *)tdp->wend,
-                CH_DBG_STACK_FILL_VALUE);
+  __thd_stackfill((uint8_t *)tdp->wbase, (uint8_t *)tdp->wend);
 #endif
 
   chSysLock();
@@ -298,9 +297,7 @@ thread_t *chThdCreate(const thread_descriptor_t *tdp) {
 #endif
 
 #if CH_DBG_FILL_THREADS == TRUE
-  __thd_memfill((uint8_t *)tdp->wbase,
-                (uint8_t *)tdp->wend,
-                CH_DBG_STACK_FILL_VALUE);
+  __thd_stackfill((uint8_t *)tdp->wbase, (uint8_t *)tdp->wend);
 #endif
 
   chSysLock();
@@ -348,9 +345,7 @@ thread_t *chThdCreateStatic(void *wsp, size_t size,
 #endif
 
 #if CH_DBG_FILL_THREADS == TRUE
-  __thd_memfill((uint8_t *)wsp,
-                (uint8_t *)wsp + size,
-                CH_DBG_STACK_FILL_VALUE);
+  __thd_stackfill((uint8_t *)wsp, (uint8_t *)wsp + size);
 #endif
 
   chSysLock();
@@ -358,8 +353,8 @@ thread_t *chThdCreateStatic(void *wsp, size_t size,
   /* The thread structure is laid out in the upper part of the thread
      workspace. The thread position structure is aligned to the required
      stack alignment because it represents the stack top.*/
-  tp = (thread_t *)((uint8_t *)wsp + size -
-                    MEM_ALIGN_NEXT(sizeof (thread_t), PORT_STACK_ALIGN));
+  tp = threadref(((uint8_t *)wsp + size -
+                 MEM_ALIGN_NEXT(sizeof (thread_t), PORT_STACK_ALIGN)));
 
 #if (CH_DBG_ENABLE_STACK_CHECK == TRUE) || (CH_CFG_USE_DYNAMIC == TRUE)
   /* Stack boundary.*/
@@ -520,24 +515,23 @@ void chThdExitS(msg_t msg) {
 
 #if CH_CFG_USE_WAITEXIT == TRUE
   /* Waking up any waiting thread.*/
-  while (ch_list_notempty(&currtp->waiting)) {
-    (void) chSchReadyI((thread_t *)ch_list_pop(&currtp->waiting));
+  while (unlikely(ch_list_notempty(&currtp->waiting))) {
+    (void) chSchReadyI(threadref(ch_list_unlink(&currtp->waiting)));
   }
 #endif
 
 #if CH_CFG_USE_REGISTRY == TRUE
-  /* Static threads with no references are immediately removed from the
-     registry because there is no memory to recover.*/
+  if (unlikely(currtp->refs == (trefs_t)0)) {
 #if CH_CFG_USE_DYNAMIC == TRUE
-  if ((currtp->refs == (trefs_t)0) &&
-      ((currtp->flags & CH_FLAG_MODE_MASK) == CH_FLAG_MODE_STATIC)) {
-    REG_REMOVE(currtp);
-  }
+    /* Static threads are immediately removed from the registry because there
+       is no memory to recover.*/
+    if (unlikely(((currtp->flags & CH_FLAG_MODE_MASK) == CH_FLAG_MODE_STATIC))) {
+      REG_REMOVE(currtp);
+    }
 #else
-  if (currtp->refs == (trefs_t)0) {
     REG_REMOVE(currtp);
-  }
 #endif
+  }
 #endif
 
   /* Going into final state.*/
@@ -579,8 +573,8 @@ msg_t chThdWait(thread_t *tp) {
   chDbgAssert(tp->refs > (trefs_t)0, "no references");
 #endif
 
-  if (tp->state != CH_STATE_FINAL) {
-    ch_list_push(&currtp->hdr.list, &tp->waiting);
+  if (likely(tp->state != CH_STATE_FINAL)) {
+    ch_list_link(&tp->waiting, &currtp->hdr.list);
     chSchGoSleepS(CH_STATE_WTEXIT);
   }
   msg = tp->u.exitcode;
@@ -687,7 +681,7 @@ void chThdSleepUntil(systime_t time) {
 
   chSysLock();
   interval = chTimeDiffX(chVTGetSystemTimeX(), time);
-  if (interval > (sysinterval_t)0) {
+  if (likely(interval > (sysinterval_t)0)) {
     chThdSleepS(interval);
   }
   chSysUnlock();
@@ -712,7 +706,7 @@ systime_t chThdSleepUntilWindowed(systime_t prev, systime_t next) {
 
   chSysLock();
   time = chVTGetSystemTimeX();
-  if (chTimeIsInRangeX(time, prev, next)) {
+  if (likely(chTimeIsInRangeX(time, prev, next))) {
     chThdSleepS(chTimeDiffX(time, next));
   }
   chSysUnlock();
@@ -766,7 +760,7 @@ msg_t chThdSuspendS(thread_reference_t *trp) {
  *                      handled as follow:
  *                      - @a TIME_INFINITE the thread enters an infinite sleep
  *                        state.
- *                      - @a TIME_IMMEDIATE the thread is not enqueued and
+ *                      - @a TIME_IMMEDIATE the thread is not suspended and
  *                        the function returns @p MSG_TIMEOUT as if a timeout
  *                        occurred.
  *                      .
@@ -780,7 +774,7 @@ msg_t chThdSuspendTimeoutS(thread_reference_t *trp, sysinterval_t timeout) {
 
   chDbgAssert(*trp == NULL, "not NULL");
 
-  if (TIME_IMMEDIATE == timeout) {
+  if (unlikely(TIME_IMMEDIATE == timeout)) {
     return MSG_TIMEOUT;
   }
 
@@ -853,11 +847,51 @@ void chThdResume(thread_reference_t *trp, msg_t msg) {
 }
 
 /**
+ * @brief   Initializes a threads queue object.
+ *
+ * @param[out] tqp      pointer to a @p threads_queue_t structure
+ *
+ * @init
+ */
+void chThdQueueObjectInit(threads_queue_t *tqp) {
+
+  chDbgCheck(tqp);
+
+  ch_queue_init(&tqp->queue);
+}
+
+/**
+ * @brief   Disposes a threads queue.
+ * @note    Objects disposing does not involve freeing memory but just
+ *          performing checks that make sure that the object is in a
+ *          state compatible with operations stop.
+ * @note    If the option @p CH_CFG_HARDENING_LEVEL is greater than zero then
+ *          the object is also cleared, attempts to use the object would likely
+ *          result in a clean memory access violation because dereferencing
+ *          of @p NULL pointers rather than dereferencing previously valid
+ *          pointers.
+ *
+ * @param[in] tqp       pointer to a @p threads_queue_t structure
+ *
+ * @dispose
+ */
+void chThdObjectDispose(threads_queue_t *tqp) {
+
+  chDbgCheck(tqp != NULL);
+  chDbgAssert(ch_queue_isempty(&tqp->queue),
+              "object in use");
+
+#if CH_CFG_HARDENING_LEVEL > 0
+  memset((void *)tqp, 0, sizeof (threads_queue_t));
+#endif
+}
+
+/**
  * @brief   Enqueues the caller thread on a threads queue object.
  * @details The caller thread is enqueued and put to sleep until it is
  *          dequeued or the specified timeouts expires.
  *
- * @param[in] tqp       pointer to the threads queue object
+ * @param[in] tqp       pointer to a @p threads_queue_t structure
  * @param[in] timeout   the timeout in system ticks, the special values are
  *                      handled as follow:
  *                      - @a TIME_INFINITE the thread enters an infinite sleep
@@ -878,11 +912,11 @@ void chThdResume(thread_reference_t *trp, msg_t msg) {
 msg_t chThdEnqueueTimeoutS(threads_queue_t *tqp, sysinterval_t timeout) {
   thread_t *currtp = chThdGetSelfX();
 
-  if (TIME_IMMEDIATE == timeout) {
+  if (unlikely(TIME_IMMEDIATE == timeout)) {
     return MSG_TIMEOUT;
   }
 
-  ch_queue_insert((ch_queue_t *)currtp, &tqp->queue);
+  ch_queue_insert(&tqp->queue, (ch_queue_t *)currtp);
 
   return chSchGoSleepTimeoutS(CH_STATE_QUEUED, timeout);
 }
@@ -891,7 +925,7 @@ msg_t chThdEnqueueTimeoutS(threads_queue_t *tqp, sysinterval_t timeout) {
  * @brief   Dequeues and wakes up one thread from the threads queue object,
  *          if any.
  *
- * @param[in] tqp       pointer to the threads queue object
+ * @param[in] tqp       pointer to a @p threads_queue_t structure
  * @param[in] msg       the message code
  *
  * @iclass
@@ -906,7 +940,7 @@ void chThdDequeueNextI(threads_queue_t *tqp, msg_t msg) {
 /**
  * @brief   Dequeues and wakes up all threads from the threads queue object.
  *
- * @param[in] tqp       pointer to the threads queue object
+ * @param[in] tqp       pointer to a @p threads_queue_t structure
  * @param[in] msg       the message code
  *
  * @iclass

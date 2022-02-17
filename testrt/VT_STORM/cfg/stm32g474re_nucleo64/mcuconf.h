@@ -41,10 +41,26 @@
  * HAL driver system settings.
  */
 #define STM32_NO_INIT                       FALSE
+#define STM32_CLOCK_DYNAMIC                 FALSE
 #define STM32_VOS                           STM32_VOS_RANGE1
+#define STM32_PWR_BOOST                     TRUE
 #define STM32_PWR_CR2                       (PWR_CR2_PLS_LEV0)
 #define STM32_PWR_CR3                       (PWR_CR3_EIWF)
 #define STM32_PWR_CR4                       (0U)
+#define STM32_PWR_PUCRA                     (0U)
+#define STM32_PWR_PDCRA                     (0U)
+#define STM32_PWR_PUCRB                     (0U)
+#define STM32_PWR_PDCRB                     (0U)
+#define STM32_PWR_PUCRC                     (0U)
+#define STM32_PWR_PDCRC                     (0U)
+#define STM32_PWR_PUCRD                     (0U)
+#define STM32_PWR_PDCRD                     (0U)
+#define STM32_PWR_PUCRE                     (0U)
+#define STM32_PWR_PDCRE                     (0U)
+#define STM32_PWR_PUCRF                     (0U)
+#define STM32_PWR_PDCRF                     (0U)
+#define STM32_PWR_PUCRG                     (0U)
+#define STM32_PWR_PDCRG                     (0U)
 #define STM32_HSI16_ENABLED                 TRUE
 #define STM32_HSI48_ENABLED                 TRUE
 #define STM32_HSE_ENABLED                   TRUE
@@ -116,8 +132,8 @@
 #define STM32_IRQ_TIM1_TRGCO_TIM17_PRIORITY 7
 #define STM32_IRQ_TIM1_CC_PRIORITY          7
 #define STM32_IRQ_TIM2_PRIORITY             7
-#define STM32_IRQ_TIM3_PRIORITY             9
-#define STM32_IRQ_TIM4_PRIORITY             10
+#define STM32_IRQ_TIM3_PRIORITY             3
+#define STM32_IRQ_TIM4_PRIORITY             4
 #define STM32_IRQ_TIM5_PRIORITY             7
 #define STM32_IRQ_TIM6_PRIORITY             7
 #define STM32_IRQ_TIM7_PRIORITY             7
@@ -259,7 +275,6 @@
 /*
  * PWM driver system settings.
  */
-#define STM32_PWM_USE_ADVANCED              FALSE
 #define STM32_PWM_USE_TIM1                  FALSE
 #define STM32_PWM_USE_TIM2                  FALSE
 #define STM32_PWM_USE_TIM3                  FALSE
@@ -274,6 +289,13 @@
 /*
  * RTC driver system settings.
  */
+#define STM32_RTC_PRESA_VALUE               32
+#define STM32_RTC_PRESS_VALUE               1024
+#define STM32_RTC_CR_INIT                   0
+#define STM32_TAMP_CR1_INIT                 0
+#define STM32_TAMP_CR2_INIT                 0
+#define STM32_TAMP_FLTCR_INIT               0
+#define STM32_TAMP_IER_INIT                 0
 
 /*
  * SDC driver system settings.
@@ -378,5 +400,6 @@
  */
 #define STM32_WSPI_USE_QUADSPI1             FALSE
 #define STM32_WSPI_QUADSPI1_DMA_STREAM      STM32_DMA_STREAM_ID_ANY
+#define STM32_WSPI_QUADSPI1_PRESCALER_VALUE 1
 
 #endif /* MCUCONF_H */

@@ -19,7 +19,7 @@
 
 /**
  * @file    sb/host/sbapi.h
- * @brief   ARM sandbox host API macros and structures.
+ * @brief   ARM SandBox host API macros and structures.
  *
  * @addtogroup ARM_SANDBOX_HOSTAPI
  * @{
@@ -114,6 +114,7 @@ extern "C" {
   void sb_api_wait_any_timeout(struct port_extctx *ctxp);
   void sb_api_wait_all_timeout(struct port_extctx *ctxp);
   void sb_api_broadcast_flags(struct port_extctx *ctxp);
+  void sb_api_loadelf(struct port_extctx *ectxp);
 #ifdef __cplusplus
 }
 #endif

@@ -46,9 +46,19 @@
                                          ((id) <= (RP_DMA_CHANNELS + 1U)))
 
 /**
+ * @brief   Checks if a DMA priority is within the valid range.
+ * @param[in] prio      DMA priority
+ *
+ * @retval              The check result.
+ * @retval false        invalid DMA priority.
+ * @retval true         correct DMA priority.
+ */
+#define RP_DMA_IS_VALID_PRIORITY(prio) (((prio) >= 0U) && ((prio) <= 1U))
+
+/**
  * @brief   Any channel selector.
  */
-#define RP_DMA_STREAM_ID_ANY            RP_DMA_CHANNELS
+#define RP_DMA_CHANNEL_ID_ANY           RP_DMA_CHANNELS
 
 /**
  * @brief   Returns a pointer to a @p rp_dma_channel_t structure.
@@ -57,7 +67,7 @@
  * @return              A pointer to the @p rp_dma_channel_t constant structure
  *                      associated to the DMA channel.
  */
-#define RP_DMA_CHANNEL(id)          (&__rp_dma_channels[id])
+#define RP_DMA_CHANNEL(id)              (&__rp_dma_channels[id])
 
 /*===========================================================================*/
 /* Driver pre-compile time settings.                                         */
@@ -75,10 +85,9 @@
  * @brief   Type of a DMA callback.
  *
  * @param[in] p         parameter for the registered function
- * @param[in] flags     pre-shifted content of the ISR register, the bits
- *                      are aligned to bit zero
+ * @param[in] ct        content of the CTRL_TRIG register
  */
-typedef void (*rp_dmaisr_t)(void *p, uint32_t flags);
+typedef void (*rp_dmaisr_t)(void *p, uint32_t ct);
 
 /**
  * @brief   RP DMA channel descriptor structure.
@@ -93,12 +102,6 @@ typedef struct {
 /*===========================================================================*/
 /* Driver macros.                                                            */
 /*===========================================================================*/
-
-/**
- * @name    Macro Functions
- * @{
- */
-/** @} */
 
 /*===========================================================================*/
 /* External declarations.                                                    */
@@ -122,7 +125,6 @@ extern "C" {
                                           void *param);
   void dmaChannelFreeI(const rp_dma_channel_t *dmachp);
   void dmaChannelFree(const rp_dma_channel_t *dmachp);
-  void dmaServeInterrupt(const rp_dma_channel_t *dmachp);
 #ifdef __cplusplus
 }
 #endif
@@ -144,6 +146,57 @@ extern "C" {
 __STATIC_INLINE bool dmaChannelIsBusyX(const rp_dma_channel_t *dmachp) {
 
   return (bool)((dmachp->channel->CTRL_TRIG & DMA_CTRL_TRIG_BUSY) != 0U);
+}
+
+/**
+ * @brief   Get and clears channel interrupts state.
+ *
+ * @param[in] dmachp    pointer to a rp_dma_channel_t structure
+ * @return              The content of @p CTRL_TRIG register before clearing
+ *                      interrupts.
+ *
+ * @special
+ */
+__STATIC_INLINE uint32_t dmaChannelGetAndClearInterrupts(const rp_dma_channel_t *dmachp) {
+  uint32_t ctrl_trig;
+
+  ctrl_trig = dmachp->channel->CTRL_TRIG;
+  dmachp->channel->CTRL_TRIG = ctrl_trig |
+                               DMA_CTRL_TRIG_READ_ERROR |
+                               DMA_CTRL_TRIG_WRITE_ERROR;
+
+  return ctrl_trig;
+}
+
+/**
+ * @brief   Enables a channel interrupt.
+ *
+ * @param[in] dmachp    pointer to a rp_dma_channel_t structure
+ *
+ * @special
+ */
+__STATIC_INLINE void dmaChannelEnableInterruptX(const rp_dma_channel_t *dmachp) {
+
+  if (SIO->CPUID == 0U) {
+    dmachp->dma->SET.INTE0 = dmachp->chnmask;
+  }
+  else {
+    dmachp->dma->SET.INTE1 = dmachp->chnmask;
+  }
+}
+
+/**
+ * @brief   Disables a channel interrupt.
+ * @note    The interrupt is disabled for both cores to save a check.
+ *
+ * @param[in] dmachp    pointer to a rp_dma_channel_t structure
+ *
+ * @special
+ */
+__STATIC_INLINE void dmaChannelDisableInterruptX(const rp_dma_channel_t *dmachp) {
+
+  dmachp->dma->CLR.INTE0 = dmachp->chnmask;
+  dmachp->dma->CLR.INTE1 = dmachp->chnmask;
 }
 
 /**
@@ -214,10 +267,23 @@ __STATIC_INLINE void dmaChannelSetModeX(const rp_dma_channel_t *dmachp,
 }
 
 /**
+ * @brief   Aborts the current transfer on a DMA channel.
+ *
+ * @param[in] dmachp    pointer to a rp_dma_channel_t structure
+ *
+ * @special
+ */
+__STATIC_INLINE void dmaChannelAbortX(const rp_dma_channel_t *dmachp) {
+
+  dmachp->dma->SET.CHAN_ABORT = dmachp->chnmask;
+  while ((dmachp->dma->CHAN_ABORT & dmachp->chnmask) != 0U) {
+  }
+}
+
+/**
  * @brief   Enables a DMA channel.
  *
  * @param[in] dmachp    pointer to a rp_dma_channel_t structure
-
  *
  * @special
  */
@@ -227,20 +293,29 @@ __STATIC_INLINE void dmaChannelEnableX(const rp_dma_channel_t *dmachp) {
 }
 
 /**
+ * @brief   Suspends a DMA channel.
+ *
+ * @param[in] dmachp    pointer to a rp_dma_channel_t structure
+ *
+ * @special
+ */
+__STATIC_INLINE void dmaChannelSuspendX(const rp_dma_channel_t *dmachp) {
+
+  dmachp->channel->CTRL_TRIG &= ~DMA_CTRL_TRIG_EN;
+}
+
+/**
  * @brief   Disables a DMA channel aborting the current transfer.
  *
  * @param[in] dmachp    pointer to a rp_dma_channel_t structure
-
  *
  * @special
  */
 __STATIC_INLINE void dmaChannelDisableX(const rp_dma_channel_t *dmachp) {
 
-  dmachp->dma->CHAN_ABORT |= dmachp->chnmask;
-  while ((dmachp->dma->CHAN_ABORT & dmachp->chnmask) != 0U) {
-  }
-  dmachp->channel->CTRL_TRIG |= DMA_CTRL_TRIG_READ_ERROR |
-                                DMA_CTRL_TRIG_WRITE_ERROR;
+  dmaChannelSuspendX(dmachp);
+  dmaChannelAbortX(dmachp);
+  (void) dmaChannelGetAndClearInterrupts(dmachp);
 }
 
 #endif /* RP_DMA_H */

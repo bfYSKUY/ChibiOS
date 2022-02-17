@@ -148,9 +148,9 @@
 /*===========================================================================*/
 
 /**
- * @brief   Type of a structure representing an CAN driver.
+ * @brief   Type of a CAN driver.
  */
-typedef struct CANDriver CANDriver;
+typedef struct hal_can_driver CANDriver;
 
 /**
  * @brief   Type of a transmission mailbox index.
@@ -287,7 +287,6 @@ typedef struct {
   };
 } CANRxStandardFilter;
 
-
 /**
  * @brief   CAN extended filter.
  * @note    Accessing the frame data as word16 or word32 is not portable
@@ -311,11 +310,10 @@ typedef struct {
   };
 } CANRxExtendedFilter;
 
-
 /**
- * @brief   Driver configuration structure.
+ * @brief   Type of a CAN configuration structure.
  */
-typedef struct {
+typedef struct hal_can_config {
   /**
    * @brief   Nominal bit timing and prescaler register.
    */
@@ -341,7 +339,7 @@ typedef struct {
 /**
  * @brief   Structure representing an CAN driver.
  */
-struct CANDriver {
+struct hal_can_driver {
   /**
    * @brief   Driver state.
    */

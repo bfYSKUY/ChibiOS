@@ -45,14 +45,14 @@
  * @brief   UART0 SIO driver identifier.
  */
 #if (RP_SIO_USE_UART0 == TRUE) || defined(__DOXYGEN__)
-SIODriver SIOD1;
+SIODriver SIOD0;
 #endif
 
 /**
  * @brief   UART1 SIO driver identifier.
  */
 #if (RP_SIO_USE_UART1 == TRUE) || defined(__DOXYGEN__)
-SIODriver SIOD2;
+SIODriver SIOD1;
 #endif
 
 /*===========================================================================*/
@@ -117,13 +117,14 @@ __STATIC_INLINE void uart_enable_tx_irq(SIODriver *siop) {
  * @param[in] siop       pointer to a @p SIODriver object
  */
 __STATIC_INLINE void uart_init(SIODriver *siop) {
-  uint32_t clock, div, idiv, fdiv;
+  uint32_t div, idiv, fdiv;
+  halfreq_t clock;
 
-  clock = hal_lld_get_clock(clk_peri);
+  clock = halClockGetPointX(clk_peri);
 
   osalDbgAssert(clock > 0U, "no clock");
 
-  div = (8U * clock) / siop->config->baud;
+  div = (8U * (uint32_t)clock) / siop->config->baud;
   idiv = div >> 7;
   fdiv = ((div & 0x7FU) + 1U) / 2U;
 
@@ -135,47 +136,6 @@ __STATIC_INLINE void uart_init(SIODriver *siop) {
   /* Registers settings, the LCR_H write also latches dividers values.*/
   siop->uart->UARTLCR_H = siop->config->UARTLCR_H & ~UART_LCRH_CFG_FORBIDDEN;
   siop->uart->UARTCR    = siop->config->UARTCR    & ~UART_CR_CFG_FORBIDDEN;
-
-#if 0
-  USART_TypeDef *u = siop->usart;
-  uint32_t presc, brr;
-
-  /* Prescaler calculation.*/
-  static const uint32_t prescvals[] = {1, 2, 4, 6, 8, 10, 12, 16, 32, 64, 128, 256};
-  presc = prescvals[siop->config->presc];
-
- /* Baud rate setting.*/
-#if RP_SIO_USE_LPUART1
-  if (siop == &LPSIOD1) {
-    osalDbgAssert((siop->clock >= siop->config->baud * 3U) &&
-                  (siop->clock <= siop->config->baud * 4096U),
-                  "invalid baud rate vs input clock");
-
-    brr = (uint32_t)(((uint64_t)(siop->clock / presc) * (uint64_t)256) / siop->config->baud);
-
-    osalDbgAssert((brr >= 0x300) && (brr < 0x100000), "invalid BRR value");
-  }
- else
-#endif
-  {
-    brr = (uint32_t)((siop->clock / presc) / siop->config->baud);
-
-    /* Correcting BRR value when oversampling by 8 instead of 16.
-       Fraction is still 4 bits wide, but only lower 3 bits used.
-       Mantissa is doubled, but Fraction is left the same.*/
-    if ((siop->config->cr1 & USART_CR1_OVER8) != 0U) {
-      brr = ((brr & ~7U) * 2U) | (brr & 7U);
-    }
-
-    osalDbgAssert(brr < 0x10000, "invalid BRR value");
-  }
-
-  /* Setting up USART.*/
-  u->BRR   = brr;
-  u->CR1   = siop->config->cr1 & ~USART_CR1_CFG_FORBIDDEN;
-  u->CR2   = siop->config->cr2 & ~USART_CR2_CFG_FORBIDDEN;
-  u->CR3   = siop->config->cr3 & ~USART_CR3_CFG_FORBIDDEN;
-#endif
 }
 
 /*===========================================================================*/
@@ -195,13 +155,13 @@ void sio_lld_init(void) {
 
   /* Driver instances initialization.*/
 #if RP_SIO_USE_UART0 == TRUE
-  sioObjectInit(&SIOD1);
-  SIOD1.uart = UART0;
+  sioObjectInit(&SIOD0);
+  SIOD0.uart = UART0;
   hal_lld_peripheral_reset(RESETS_ALLREG_UART0);
 #endif
 #if RP_SIO_USE_UART1 == TRUE
-  sioObjectInit(&SIOD2);
-  SIOD2.uart = UART1;
+  sioObjectInit(&SIOD1);
+  SIOD1.uart = UART1;
   hal_lld_peripheral_reset(RESETS_ALLREG_UART1);
 #endif
 }
@@ -230,13 +190,13 @@ bool sio_lld_start(SIODriver *siop) {
     if (false) {
     }
 #if RP_SIO_USE_UART0 == TRUE
-    else if (&SIOD1 == siop) {
+    else if (&SIOD0 == siop) {
       hal_lld_peripheral_unreset(RESETS_ALLREG_UART0);
       nvicEnableVector(RP_UART0_IRQ_NUMBER, RP_IRQ_UART0_PRIORITY);
     }
 #endif
 #if RP_SIO_USE_UART1 == TRUE
-    else if (&SIOD2 == siop) {
+    else if (&SIOD1 == siop) {
       hal_lld_peripheral_unreset(RESETS_ALLREG_UART1);
       nvicEnableVector(RP_UART1_IRQ_NUMBER, RP_IRQ_UART1_PRIORITY);
     }
@@ -276,13 +236,13 @@ void sio_lld_stop(SIODriver *siop) {
     if (false) {
     }
 #if RP_SIO_USE_UART0 == TRUE
-    else if (&SIOD1 == siop) {
+    else if (&SIOD0 == siop) {
       nvicDisableVector(RP_UART0_IRQ_NUMBER);
       hal_lld_peripheral_reset(RESETS_ALLREG_UART0);
     }
 #endif
 #if RP_SIO_USE_UART1 == TRUE
-    else if (&SIOD2 == siop) {
+    else if (&SIOD1 == siop) {
       nvicDisableVector(RP_UART1_IRQ_NUMBER);
       hal_lld_peripheral_reset(RESETS_ALLREG_UART1);
     }

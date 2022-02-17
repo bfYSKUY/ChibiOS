@@ -43,8 +43,9 @@
 #define STM32_PLS                           STM32_PLS_LEV0
 #define STM32_HSI16_ENABLED                 TRUE
 #define STM32_HSI48_ENABLED                 TRUE
-#define STM32_LSI_ENABLED                   FALSE
-#define STM32_HSE_ENABLED                   FALSE
+#define STM32_LSI1_ENABLED                  FALSE
+#define STM32_LSI2_ENABLED                  FALSE
+#define STM32_HSE32_ENABLED                 FALSE
 #define STM32_LSE_ENABLED                   TRUE
 #define STM32_MSIPLL_ENABLED                TRUE
 #define STM32_MSIRANGE                      STM32_MSIRANGE_4M
@@ -155,7 +156,6 @@
 /*
  * PWM driver system settings.
  */
-#define STM32_PWM_USE_ADVANCED              FALSE
 #define STM32_PWM_USE_TIM1                  FALSE
 #define STM32_PWM_USE_TIM2                  FALSE
 #define STM32_PWM_USE_TIM16                 FALSE
@@ -237,5 +237,6 @@
  */
 #define STM32_WSPI_USE_QUADSPI1             FALSE
 #define STM32_WSPI_QUADSPI1_DMA_STREAM      STM32_DMA_STREAM_ID(2, 7)
+#define STM32_WSPI_QUADSPI1_PRESCALER_VALUE 1
 
 #endif /* MCUCONF_H */

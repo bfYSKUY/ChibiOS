@@ -200,7 +200,6 @@ static oc_object_t *lru_get_last_s(objects_cache_t *ocp) {
       return objp;
     }
 
-
     /* Out of critical section.*/
     chSysUnlock();
 
@@ -466,7 +465,7 @@ bool chCacheReadObject(objects_cache_t *ocp,
  * @param[in] ocp       pointer to the @p objects_cache_t structure
  * @param[in] objp      pointer to the @p oc_object_t structure
  * @param[in] async     requests an asynchronous operation if supported, the
- *                      function is then responsible for releasing the
+ *                      called function is then responsible for releasing the
  *                      object
  * @return              The operation status. In case of asynchronous
  *                      operation @p false is always returned.

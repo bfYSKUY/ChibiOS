@@ -48,7 +48,7 @@
 /**
  * @brief   Kernel version string.
  */
-#define CH_KERNEL_VERSION       "7.0.0"
+#define CH_KERNEL_VERSION       "7.1.0"
 
 /**
  * @brief   Kernel version major number.
@@ -58,7 +58,7 @@
 /**
  * @brief   Kernel version minor number.
  */
-#define CH_KERNEL_MINOR         0
+#define CH_KERNEL_MINOR         1
 
 /**
  * @brief   Kernel version patch number.
@@ -96,18 +96,19 @@
 #include "chrestrictions.h"
 
 /* Base kernel headers.*/
-#include "chtypes.h"
 #include "chearly.h"
-#include "chlists.h"
-#include "chalign.h"
+#include "chrfcu.h"
 #include "chdebug.h"
 #include "chtime.h"
+#include "chlists.h"
+#include "chalign.h"
 #include "chtrace.h"
 #include "chport.h"
 #include "chtm.h"
 #include "chstats.h"
 #include "chobjects.h"
 #include "chsys.h"
+#include "chinstances.h"
 #include "chvt.h"
 #include "chschd.h"
 #include "chthreads.h"

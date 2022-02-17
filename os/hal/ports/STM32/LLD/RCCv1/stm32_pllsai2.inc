@@ -26,16 +26,21 @@
 /* Driver local definitions.                                                 */
 /*===========================================================================*/
 
+/* Required for compatibility with those devices with a common M divider.*/
+#if !defined(RCC_PLLSAI1CFGR_PLLSAI2M_Pos)
+#define RCC_PLLSAI1CFGR_PLLSAI2M_Pos    RCC_PLLCFGR_PLLM_Pos
+#endif
+
 /*===========================================================================*/
 /* Derived constants and error checks.                                       */
 /*===========================================================================*/
 
 /* Registry checks for robustness.*/
-#if !defined(STM32_HAS_PLLSAI2)
-#define STM32_HAS_PLLSAI2           FALSE
+#if !defined(STM32_RCC_HAS_PLLSAI2)
+#define STM32_RCC_HAS_PLLSAI2           FALSE
 #endif
 
-#if STM32_HAS_PLLSAI2
+#if STM32_RCC_HAS_PLLSAI2
 
 /* Checks on configurations.*/
 #if !defined(STM32_PLLSRC)
@@ -54,15 +59,15 @@
 #error "STM32_PLLSAI2PDIV_VALUE not defined in mcuconf.h"
 #endif
 
-#if STM32_PLLSAI2_HAS_P && !defined(STM32_PLLSAI2P_VALUE)
+#if STM32_RCC_PLLSAI2_HAS_P && !defined(STM32_PLLSAI2P_VALUE)
 #error "STM32_PLLSAI2P_VALUE not defined in mcuconf.h"
 #endif
 
-#if STM32_PLLSAI2_HAS_Q && !defined(STM32_PLLSAI2Q_VALUE)
+#if STM32_RCC_PLLSAI2_HAS_Q && !defined(STM32_PLLSAI2Q_VALUE)
 #error "STM32_PLLSAI2Q_VALUE not defined in mcuconf.h"
 #endif
 
-#if STM32_PLLSAI2_HAS_R && !defined(STM32_PLLSAI2R_VALUE)
+#if STM32_RCC_PLLSAI2_HAS_R && !defined(STM32_PLLSAI2R_VALUE)
 #error "STM32_PLLSAI2R_VALUE not defined in mcuconf.h"
 #endif
 
@@ -112,20 +117,23 @@
 #error "STM32_ACTIVATE_PLLSAI2 not defined in hal_lld.h"
 #endif
 
-
-#if STM32_PLLSAI2_HAS_P && !defined(STM32_PLLSAI2PEN)
+#if STM32_RCC_PLLSAI2_HAS_P && !defined(STM32_PLLSAI2PEN)
 #error "STM32_PLLSAI2PEN not defined in hal_lld.h"
 #endif
 
-#if STM32_PLLSAI2_HAS_Q && !defined(STM32_PLLSAI2QEN)
+#if STM32_RCC_PLLSAI2_HAS_Q && !defined(STM32_PLLSAI2QEN)
 #error "STM32_PLLSAI2QEN not defined in hal_lld.h"
 #endif
 
-#if STM32_PLLSAI2_HAS_R && !defined(STM32_PLLSAI2REN)
+#if STM32_RCC_PLLSAI2_HAS_R && !defined(STM32_PLLSAI2REN)
 #error "STM32_PLLSAI2REN not defined in hal_lld.h"
 #endif
 
-#if (STM32_PLLSAI2CLKIN != 0) &&                                                \
+#if STM32_ACTIVATE_PLLSAI1 && (STM32_PLLSAI1CLKIN == 0)
+#error "PLLSAI1 activation required but no PLL clock selected"
+#endif
+
+#if (STM32_PLLSAI2CLKIN != 0) &&                                            \
     ((STM32_PLLSAI2CLKIN < STM32_PLLIN_MIN) || (STM32_PLLSAI2CLKIN > STM32_PLLIN_MAX))
 #error "STM32_PLLSAI2CLKIN outside acceptable range (STM32_PLLIN_MIN...STM32_PLLIN_MAX)"
 #endif
@@ -135,7 +143,7 @@
  */
 #if ((STM32_PLLSAI2M_VALUE >= 1) && (STM32_PLLSAI2M_VALUE <= 16)) ||        \
     defined(__DOXYGEN__)
-#define STM32_PLLSAI2M              ((STM32_PLLSAI2M_VALUE - 1) << 4)
+#define STM32_PLLSAI2M              ((STM32_PLLSAI2M_VALUE - 1U) << RCC_PLLSAI2CFGR_PLLSAI2M_Pos)
 
 #else
 #error "invalid STM32_PLLSAI2M_VALUE value specified"
@@ -146,7 +154,7 @@
  */
 #if ((STM32_PLLSAI2N_VALUE >= 8) && (STM32_PLLSAI2N_VALUE <= 127)) ||       \
     defined(__DOXYGEN__)
-#define STM32_PLLSAI2N              (STM32_PLLSAI2N_VALUE << 8)
+#define STM32_PLLSAI2N              (STM32_PLLSAI2N_VALUE << RCC_PLLSAI2CFGR_PLLSAI2N_Pos)
 
 #else
 #error "invalid STM32_PLLSAI2N_VALUE value specified"
@@ -168,7 +176,32 @@
 /*---------------------------------------------------------------------------*/
 /* P output, if present.                                                     */
 /*---------------------------------------------------------------------------*/
-#if STM32_PLLSAI2_HAS_P || defined(__DOXYGEN__)
+#if STM32_RCC_PLLSAI2_HAS_P || defined(__DOXYGEN__)
+/**
+ * @brief   STM32_PLLSAI2P field.
+ */
+#if (STM32_PLLSAI2P_VALUE == 7) || defined(__DOXYGEN__)
+#define STM32_PLLSAI2P              (0U << RCC_PLLSAI2CFGR_PLLSAI2P_Pos)
+
+#elif STM32_PLLSAI2P_VALUE == 17
+#define STM32_PLLSAI2P              (1U << RCC_PLLSAI2CFGR_PLLSAI2P_Pos)
+
+#else
+#error "invalid STM32_PLLSAI2P_VALUE value specified"
+#endif
+
+/* SAI2PDIV is not present on all devices.*/
+#if defined(RCC_PLLSAI2CFGR_PLLSAI2PDIV_Pos) || defined(__DOXYGEN__)
+/**
+ * @brief   STM32_PLLSAI2PDIV field.
+ */
+#if ((STM32_PLLSAI2PDIV_VALUE != 1) && (STM32_PLLSAI2PDIV_VALUE <= 31)) ||  \
+    defined(__DOXYGEN__)
+#define STM32_PLLSAI2PDIV           (STM32_PLLSAI2PDIV_VALUE << RCC_PLLSAI2CFGR_PLLSAI2PDIV_Pos)
+#else
+#error "invalid STM32_PLLSAI2PDIV_VALUE value specified"
+#endif
+
 /**
  * @brief   PLLSAI2 P output clock frequency.
  */
@@ -178,17 +211,9 @@
 #define STM32_PLLSAI2_P_CLKOUT      (STM32_PLLSAI2VCO / STM32_PLLSAI2PDIV_VALUE)
 #endif
 
-/**
- * @brief   STM32_PLLSAI2P field.
- */
-#if (STM32_PLLSAI2P_VALUE == 7) || defined(__DOXYGEN__)
-#define STM32_PLLSAI2P              (0 << 17)
-
-#elif STM32_PLLSAI2P_VALUE == 17
-#define STM32_PLLSAI2P              (1 << 17)
-
 #else
-#error "invalid STM32_PLLSAI2P_VALUE value specified"
+#define STM32_PLLSAI2PDIV           0U
+#define STM32_PLLSAI2_P_CLKOUT      (STM32_PLLSAI2VCO / STM32_PLLSAI2P_VALUE)
 #endif
 
 /*
@@ -199,29 +224,29 @@
 #error "STM32_PLLSAI2_P_CLKOUT outside acceptable range (STM32_PLLP_MIN...STM32_PLLP_MAX)"
 #endif
 
-#else /* !STM32_PLLSAI2_HAS_P */
-#define STM32_PLLSAI2P              0
-#define STM32_PLLSAI2PEN            0
-#endif /* !STM32_PLLSAI2_HAS_P */
+#else /* !STM32_RCC_PLLSAI2_HAS_P */
+#define STM32_PLLSAI2P              0U
+#define STM32_PLLSAI2PEN            0U
+#endif /* !STM32_RCC_PLLSAI2_HAS_P */
 
 /*---------------------------------------------------------------------------*/
 /* Q output, if present.                                                     */
 /*---------------------------------------------------------------------------*/
-#if STM32_PLLSAI2_HAS_Q || defined(__DOXYGEN__)
+#if STM32_RCC_PLLSAI2_HAS_Q || defined(__DOXYGEN__)
 /**
  * @brief   STM32_PLLSAI2Q field.
  */
 #if (STM32_PLLSAI2Q_VALUE == 2) || defined(__DOXYGEN__)
-#define STM32_PLLSAI2Q              (0 << 21)
+#define STM32_PLLSAI2Q              (0U << RCC_PLLSAI2CFGR_PLLSAI2Q_Pos)
 
 #elif STM32_PLLSAI2Q_VALUE == 4
-#define STM32_PLLSAI2Q              (1 << 21)
+#define STM32_PLLSAI2Q              (1U << RCC_PLLSAI2CFGR_PLLSAI2Q_Pos)
 
 #elif STM32_PLLSAI2Q_VALUE == 6
-#define STM32_PLLSAI2Q              (2 << 21)
+#define STM32_PLLSAI2Q              (2U << RCC_PLLSAI2CFGR_PLLSAI2Q_Pos)
 
 #elif STM32_PLLSAI2Q_VALUE == 8
-#define STM32_PLLSAI2Q              (3 << 21)
+#define STM32_PLLSAI2Q              (3U << RCC_PLLSAI2CFGR_PLLSAI2Q_Pos)
 
 #else
 #error "invalid STM32_PLLSAI2Q_VALUE value specified"
@@ -235,34 +260,34 @@
 /*
  * PLLSAI2-Q output frequency range check.
  */
-#if STM32_ACTIVATE_PLLSAI2 &&                                                   \
+#if STM32_ACTIVATE_PLLSAI2 &&                                               \
     ((STM32_PLLSAI2_Q_CLKOUT < STM32_PLLQ_MIN) || (STM32_PLLSAI2_Q_CLKOUT > STM32_PLLQ_MAX))
 #error "STM32_PLLSAI2_Q_CLKOUT outside acceptable range (STM32_PLLQ_MIN...STM32_PLLQ_MAX)"
 #endif
 
-#else /* !STM32_PLLSAI2_HAS_Q */
-#define STM32_PLLSAI2Q              0
-#define STM32_PLLSAI2QEN            0
-#endif /* !STM32_PLLSAI2_HAS_Q */
+#else /* !STM32_RCC_PLLSAI2_HAS_Q */
+#define STM32_PLLSAI2Q              0U
+#define STM32_PLLSAI2QEN            0U
+#endif /* !STM32_RCC_PLLSAI2_HAS_Q */
 
 /*---------------------------------------------------------------------------*/
 /* R output, if present.                                                     */
 /*---------------------------------------------------------------------------*/
-#if STM32_PLLSAI2_HAS_R || defined(__DOXYGEN__)
+#if STM32_RCC_PLLSAI2_HAS_R || defined(__DOXYGEN__)
 /**
  * @brief   STM32_PLLSAI2R field.
  */
 #if (STM32_PLLSAI2R_VALUE == 2) || defined(__DOXYGEN__)
-#define STM32_PLLSAI2R              (0 << 25)
+#define STM32_PLLSAI2R              (0U << RCC_PLLSAI2CFGR_PLLSAI2R_Pos)
 
 #elif STM32_PLLSAI2R_VALUE == 4
-#define STM32_PLLSAI2R              (1 << 25)
+#define STM32_PLLSAI2R              (1U << RCC_PLLSAI2CFGR_PLLSAI2R_Pos)
 
 #elif STM32_PLLSAI2R_VALUE == 6
-#define STM32_PLLSAI2R              (2 << 25)
+#define STM32_PLLSAI2R              (2U << RCC_PLLSAI2CFGR_PLLSAI2R_Pos)
 
 #elif STM32_PLLSAI2R_VALUE == 8
-#define STM32_PLLSAI2R              (3 << 25)
+#define STM32_PLLSAI2R              (3U << RCC_PLLSAI2CFGR_PLLSAI2R_Pos)
 
 #else
 #error "invalid STM32_PLLSAI2R_VALUE value specified"
@@ -281,10 +306,10 @@
 #error "STM32_PLLSAI2_R_CLKOUT outside acceptable range (STM32_PLLR_MIN...STM32_PLLR_MAX)"
 #endif
 
-#else /* !STM32_PLLSAI2_HAS_R */
-#define STM32_PLLSAI2R              0
-#define STM32_PLLSAI2REN            0
-#endif /* !STM32_PLLSAI2_HAS_R */
+#else /* !STM32_RCC_PLLSAI2_HAS_R */
+#define STM32_PLLSAI2R              0U
+#define STM32_PLLSAI2REN            0U
+#endif /* !STM32_RCC_PLLSAI2_HAS_R */
 
 /*===========================================================================*/
 /* Driver exported variables.                                                */
@@ -298,27 +323,50 @@
 /* Driver local functions.                                                   */
 /*===========================================================================*/
 
-static inline void pllsai2_init(void) {
+__STATIC_INLINE bool pllsai2_not_locked(void) {
 
+  if ((RCC->CR & RCC_CR_PLLSAI2ON) == 0U) {
+    /* Disabled, no need to lock.*/
+    return false;
+  }
+  return (bool)((RCC->CR & RCC_CR_PLLSAI2RDY) == 0U);
+}
+
+__STATIC_INLINE void pllsai2_wait_lock(void) {
+
+  while (pllsai2_not_locked()) {
+    /* Waiting for PLLSAI2 lock.*/
+  }
+}
+
+#endif /* STM32_RCC_HAS_PLLSAI2 */
+
+__STATIC_INLINE void pllsai2_init(void) {
+
+#if STM32_RCC_HAS_PLLSAI2
 #if STM32_ACTIVATE_PLLSAI2
   /* PLLSAI2 activation.*/
   RCC->PLLSAI2CFGR = STM32_PLLSAI2PDIV | STM32_PLLSAI2R   |
                      STM32_PLLSAI2REN  | STM32_PLLSAI2Q   |
                      STM32_PLLSAI2QEN  | STM32_PLLSAI2P   |
                      STM32_PLLSAI2PEN  | STM32_PLLSAI2N   |
-                     STM32_PLLSAI2M    | STM32_PLLSAI2SRC;
+                     STM32_PLLSAI2M;
   RCC->CR |= RCC_CR_PLLSAI2ON;
 
   /* Waiting for PLL lock.*/
-  while ((RCC->CR & RCC_CR_PLLSAI2RDY) == 0)
-    ;
+  pllsai2_wait_lock();
+#endif
 #endif
 }
 
-static inline void pllsai2_deinit(void) {
+__STATIC_INLINE void pllsai2_deinit(void) {
 
+#if STM32_RCC_HAS_PLLSAI2
+#if STM32_ACTIVATE_PLLSAI2
   /* PLLSAI2 de-activation.*/
   RCC->PLLSAI2CFGR &= ~RCC_CR_PLLSAI2ON;
+#endif
+#endif
 }
 
 /*===========================================================================*/
@@ -328,7 +376,5 @@ static inline void pllsai2_deinit(void) {
 /*===========================================================================*/
 /* Driver exported functions.                                                */
 /*===========================================================================*/
-
-#endif /* STM32_HAS_PLLSAI2 */
 
 /** @} */

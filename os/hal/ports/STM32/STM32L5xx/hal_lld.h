@@ -44,6 +44,11 @@
 /*===========================================================================*/
 
 /**
+ * @brief   Requires use of SPIv2 driver model.
+ */
+#define HAL_LLD_SELECT_SPI_V2           TRUE
+
+/**
  * @name    Platform identification
  * @{
  */
@@ -592,21 +597,6 @@
 
 #endif
 
-/*
- * Board files sanity checks.
- */
-#if !defined(STM32_LSECLK)
-#error "STM32_LSECLK not defined in board.h"
-#endif
-
-#if !defined(STM32_LSEDRV)
-#error "STM32_LSEDRV not defined in board.h"
-#endif
-
-#if !defined(STM32_HSECLK)
-#error "STM32_HSECLK not defined in board.h"
-#endif
-
 /* Voltage related limits.*/
 #if (STM32_VOS == STM32_VOS_RANGE0) || defined(__DOXYGEN__)
 /**
@@ -816,7 +806,8 @@
 /*
  * Platform HSI16-related checks.
  */
-#if !STM32_HSI16_ENABLED
+#if STM32_HSI16_ENABLED
+#else /* !STM32_HSI16_ENABLED */
 
   #if STM32_SW == STM32_SW_HSI16
     #error "HSI16 not enabled, required by STM32_SW"
@@ -940,7 +931,8 @@
 /*
  * Platform HSE-related checks.
  */
-#if !STM32_HSE_ENABLED
+#if STM32_HSE_ENABLED
+#else /* !STM32_HSE_ENABLED */
 
   #if STM32_SW == STM32_SW_HSE
     #error "HSE not enabled, required by STM32_SW"
@@ -999,7 +991,8 @@
 /*
  * Platform LSI-related checks.
  */
-#if !STM32_LSI_ENABLED
+#if STM32_LSI_ENABLED
+#else /* !STM32_LSI_ENABLED */
 
   #if HAL_USE_RTC && (STM32_RTCSEL == STM32_RTCSEL_LSI)
     #error "LSI not enabled, required by STM32_RTCSEL"
@@ -1018,7 +1011,9 @@
 /*
  * Platform LSE-related checks.
  */
-#if !STM32_LSE_ENABLED
+#if STM32_LSE_ENABLED
+#else /* !STM32_LSE_ENABLED */
+
   #if STM32_RTCSEL == STM32_RTCSEL_LSE
     #error "LSE not enabled, required by STM32_RTCSEL"
   #endif
@@ -1034,6 +1029,7 @@
   #if STM32_MSIPLL_ENABLED == TRUE
     #error "LSE not enabled, required by STM32_MSIPLL_ENABLED"
   #endif
+
 #endif /* !STM32_LSE_ENABLED */
 
 /**

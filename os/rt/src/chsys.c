@@ -47,13 +47,15 @@ ch_system_t ch_system;
 /**
  * @brief   Core 0 OS instance.
  */
-os_instance_t ch0;
+CH_SYS_CORE0_MEMORY os_instance_t ch0;
 
 #if (CH_CFG_NO_IDLE_THREAD == FALSE) || defined(__DOXYGEN__)
 /**
  * @brief   Working area for core 0 idle thread.
  */
-THD_WORKING_AREA(ch_c0_idle_thread_wa, PORT_IDLE_THREAD_STACK_SIZE);
+static CH_SYS_CORE0_MEMORY THD_WORKING_AREA(ch_c0_idle_thread_wa,
+                                            PORT_IDLE_THREAD_STACK_SIZE);
+#endif
 
 #if CH_DBG_ENABLE_STACK_CHECK == TRUE
 extern stkalign_t __main_thread_stack_base__, __main_thread_stack_end__;
@@ -76,19 +78,19 @@ const os_instance_config_t ch_core0_cfg = {
   .idlethread_end   = THD_WORKING_AREA_END(ch_c0_idle_thread_wa)
 #endif
 };
-#endif
 
 #if (PORT_CORES_NUMBER > 1) || defined(__DOXYGEN__)
 /**
  * @brief   Core 1 OS instance.
  */
-os_instance_t ch1;
+CH_SYS_CORE1_MEMORY os_instance_t ch1;
 
 #if (CH_CFG_NO_IDLE_THREAD == FALSE) || defined(__DOXYGEN__)
 /**
  * @brief   Working area for core 1 idle thread.
  */
-THD_WORKING_AREA(ch_c1_idle_thread_wa, PORT_IDLE_THREAD_STACK_SIZE);
+static CH_SYS_CORE1_MEMORY THD_WORKING_AREA(ch_c1_idle_thread_wa,
+                                            PORT_IDLE_THREAD_STACK_SIZE);
 #endif
 
 #if CH_DBG_ENABLE_STACK_CHECK == TRUE
@@ -159,18 +161,23 @@ void chSysInit(void) {
 
   /* System object initialization.*/
   ch_system.state = ch_sys_initializing;
-  for (i = 0U; i < PORT_CORES_NUMBER; i++) {
+  for (i = 0U; i < (unsigned)PORT_CORES_NUMBER; i++) {
     ch_system.instances[i] = NULL;
   }
 
-#if (CH_CFG_USE_REGISTRY == TRUE) && (CH_CFG_SMP_MODE == TRUE)
-  /* Registry initialization when SMP mode is enabled.*/
-  ch_queue_init(&ch_system.reglist);
+#if CH_CFG_USE_TM == TRUE
+  /* Time Measurement calibration.*/
+  __tm_calibration_object_init(&ch_system.tmc);
 #endif
 
-#if CH_CFG_USE_TM == TRUE
-  /* Time Measurement initialization.*/
-  __tm_calibration_init();
+#if (CH_CFG_USE_REGISTRY == TRUE) && (CH_CFG_SMP_MODE == TRUE)
+  /* Registry initialization when SMP mode is enabled.*/
+  __reg_object_init(&ch_system.reglist);
+#endif
+
+#if CH_CFG_SMP_MODE == TRUE
+  /* RFCU initialization when SMP mode is enabled.*/
+  __rfcu_object_init(&ch_system.rfcu);
 #endif
 
   /* User system initialization hook.*/
@@ -180,7 +187,7 @@ void chSysInit(void) {
   __oslib_init();
 
   /* Initializing default OS instance.*/
-  chSchObjectInit(&ch0, &ch_core0_cfg);
+  chInstanceObjectInit(&ch0, &ch_core0_cfg);
 
   /* It is alive now.*/
   ch_system.state = ch_sys_running;
@@ -224,6 +231,26 @@ void chSysHalt(const char *reason) {
   /* Harmless infinite loop.*/
   while (true) {
   }
+}
+
+/**
+ * @brief   Returns a pointer to the idle thread.
+ * @note    The reference counter of the idle thread is not incremented but
+ *          it is not strictly required being the idle thread a static
+ *          object.
+ * @note    This function cannot be called from the idle thread itself,
+ *          use @p chThdGetSelfX() in that case.
+ *
+ * @return              Pointer to the idle thread.
+ *
+ * @xclass
+ */
+thread_t *chSysGetIdleThreadX(void) {
+  thread_t *tp = threadref(currcore->rlist.pqueue.prev);
+
+  chDbgAssert(tp->hdr.pqueue.prio == IDLEPRIO, "not idle thread");
+
+  return tp;
 }
 
 /**
@@ -283,7 +310,7 @@ bool chSysIntegrityCheckI(unsigned testmask) {
 
   /* Timers list integrity check.*/
   if ((testmask & CH_INTEGRITY_VTLIST) != 0U) {
-    delta_list_t *dlp;
+    ch_delta_list_t *dlp;
 
     /* Scanning the timers list forward.*/
     n = (cnt_t)0;

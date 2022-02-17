@@ -18,10 +18,10 @@
 */
 
 /**
- * @file    ARMv6-M/chcore.h
- * @brief   ARMv6-M port macros and structures.
+ * @file    ARMv6-M-RP2/chcore.h
+ * @brief   ARMv6-M-RP2 port macros and structures.
  *
- * @addtogroup ARMv6_M_RP2_CORE
+ * @addtogroup ARMV6M_RP2_CORE
  * @{
  */
 
@@ -92,11 +92,14 @@
  * @brief   Port-related fields added to the OS instance structure.
  */
 #define PORT_INSTANCE_EXTRA_FIELDS
+/** @} */
 
 /**
- * @brief   Reschedule message sent through IPC FIFOs.
+ * @brief   IPC messages
+ * @{
  */
 #define PORT_FIFO_RESCHEDULE_MESSAGE    0xFFFFFFFFU
+#define PORT_FIFO_PANIC_MESSAGE         0xFFFFFFFEU
 /** @} */
 
 /**
@@ -172,16 +175,6 @@
 #endif
 
 /**
- * @brief   Enables an alternative timer implementation.
- * @details Usually the port uses a timer interface defined in the file
- *          @p chcore_timer.h, if this option is enabled then the file
- *          @p chcore_timer_alt.h is included instead.
- */
-#if !defined(PORT_USE_ALT_TIMER)
-#define PORT_USE_ALT_TIMER              FALSE
-#endif
-
-/**
  * @brief   Enables the use of the WFI instruction in the idle thread loop.
  */
 #if !defined(CORTEX_ENABLE_WFI_IDLE)
@@ -202,6 +195,20 @@
  */
 #if !defined(PORT_SPINLOCK_NUMBER)
 #define PORT_SPINLOCK_NUMBER            31
+#endif
+
+/**
+ * @brief   Preferential BSS section for core zero.
+ */
+#if !defined(PORT_CORE0_BSS_SECTION)
+#define PORT_CORE0_BSS_SECTION          CC_SECTION(".ram4_clear.core0")
+#endif
+
+/**
+ * @brief   Preferential BSS section for core one.
+ */
+#if !defined(PORT_CORE1_BSS_SECTION)
+#define PORT_CORE1_BSS_SECTION          CC_SECTION(".ram5_clear.core1")
 #endif
 
 /*===========================================================================*/
@@ -260,7 +267,7 @@
 /**
  * @brief   Port-specific information string.
  */
-#if (CH_CFG_SMP_MODE != FALSE) || defined(__DOXYGEN__)
+#if (CH_CFG_SMP_MODE == TRUE) || defined(__DOXYGEN__)
   #if (CORTEX_ALTERNATE_SWITCH == FALSE) || defined(__DOXYGEN__)
     #define PORT_INFO                   "Preemption through NMI (SMP)"
   #else
@@ -291,14 +298,6 @@
 /* The following code is not processed when the file is included from an
    asm module.*/
 #if !defined(_FROM_ASM_)
-
-/**
- * @brief   Type of stack and memory alignment enforcement.
- * @note    In this architecture the stack alignment is enforced to 64 bits,
- *          32 bits alignment is supported by hardware but deprecated by ARM,
- *          the implementation choice is to not offer the option.
- */
-typedef uint64_t stkalign_t;
 
 /**
  * @brief   Interrupt saved context.
@@ -361,6 +360,11 @@ struct port_context {
   (((n) >= CORTEX_MAX_KERNEL_PRIORITY) && ((n) < CORTEX_PRIORITY_LEVELS))
 
 /**
+ * @brief   Optimized thread function declaration macro.
+ */
+#define PORT_THD_FUNCTION(tname, arg) void tname(void *arg)
+
+/**
  * @brief   Platform dependent part of the @p chThdCreateI() API.
  * @details This code usually setup the context switching frame represented
  *          by an @p port_intctx structure.
@@ -371,7 +375,7 @@ struct port_context {
   (tp)->ctx.sp->r4 = (uint32_t)(pf);                                        \
   (tp)->ctx.sp->r5 = (uint32_t)(arg);                                       \
   (tp)->ctx.sp->lr = (uint32_t)__port_thread_start;                         \
-} while (0)
+} while (false)
 
 /**
  * @brief   Computes the thread working area global size.
@@ -452,12 +456,21 @@ struct port_context {
 #else
   #define port_switch(ntp, otp) do {                                        \
     struct port_intctx *r13 = (struct port_intctx *)__get_PSP();            \
-    if ((stkalign_t *)(r13 - 1) < (otp)->wabase) {                          \
+    if ((stkalign_t *)(void *)(r13 - 1) < (otp)->wabase) {                  \
       chSysHalt("stack overflow");                                          \
     }                                                                       \
     __port_switch(ntp, otp);                                                \
-  } while (0)
+  } while (false)
 #endif
+
+/**
+ * @brief   Panic notification.
+ * @note    It is sent without polling for FIFO space because the other side
+ *          could be unable to empty the FIFO after a catastrophic error.
+ */
+#define PORT_SYSTEM_HALT_HOOK() do {                                        \
+    SIO->FIFO_WR = PORT_FIFO_PANIC_MESSAGE;                                 \
+  } while (false)
 
 /*===========================================================================*/
 /* External declarations.                                                    */
@@ -472,25 +485,19 @@ extern "C" {
   void __port_thread_start(void);
   void __port_switch_from_isr(void);
   void __port_exit_from_isr(void);
-#if (CH_CFG_SMP_MODE != FALSE) || defined(__DOXYGEN__)
+#if (CH_CFG_SMP_MODE == TRUE) || defined(__DOXYGEN__)
   void __port_spinlock_take(void);
   void __port_spinlock_release_inline(void);
-#endif /* CH_CFG_SMP_MODE != FALSE */
+#endif /* CH_CFG_SMP_MODE == TRUE */
 #ifdef __cplusplus
 }
 #endif
-
-#if PORT_USE_ALT_TIMER == FALSE
-#include "chcore_timer.h"
-#else /* PORT_USE_ALT_TIMER != FALSE */
-#include "chcore_timer_alt.h"
-#endif /* PORT_USE_ALT_TIMER != FALSE */
 
 /*===========================================================================*/
 /* Module inline functions.                                                  */
 /*===========================================================================*/
 
-#if (CH_CFG_SMP_MODE != FALSE) || defined(__DOXYGEN__)
+#if (CH_CFG_SMP_MODE == TRUE) || defined(__DOXYGEN__)
 /**
  * @brief   Triggers an inter-core notification.
  *
@@ -525,7 +532,7 @@ __STATIC_INLINE void port_spinlock_release(void) {
   __DMB();
   SIO->SPINLOCK[PORT_SPINLOCK_NUMBER] = (uint32_t)SIO;
 }
-#endif /* CH_CFG_SMP_MODE != FALSE */
+#endif /* CH_CFG_SMP_MODE == TRUE */
 
 /**
  * @brief   Returns a word encoding the current interrupts status.
@@ -563,7 +570,7 @@ __STATIC_INLINE bool port_is_isr_context(void) {
   return (bool)((__get_IPSR() & 0x1FFU) != 0U);
 }
 
-#if (CH_CFG_SMP_MODE != FALSE) || defined(__DOXYGEN__)
+#if (CH_CFG_SMP_MODE == TRUE) || defined(__DOXYGEN__)
 /**
  * @brief   Kernel-lock action.
  * @details In this port this function disables interrupts globally.
@@ -674,6 +681,18 @@ __STATIC_INLINE core_id_t port_get_core_id(void) {
 
   return SIO->CPUID;
 }
+
+#endif /* !defined(_FROM_ASM_) */
+
+/*===========================================================================*/
+/* Module late inclusions.                                                   */
+/*===========================================================================*/
+
+#if !defined(_FROM_ASM_)
+
+#if CH_CFG_ST_TIMEDELTA > 0
+#include "chcore_timer_rp2.h"
+#endif /* CH_CFG_ST_TIMEDELTA > 0 */
 
 #endif /* !defined(_FROM_ASM_) */
 

@@ -19,16 +19,23 @@
 
 /**
  * @file    sb/user/sbapi.h
- * @brief   ARMv7-M sandbox user API macros and structures.
+ * @brief   ARM SandBox user API macros and structures.
  *
- * @addtogroup ARMV7M_SANDBOX_USERAPI
+ * @addtogroup ARM_SANDBOX_USER_API
  * @{
  */
 
 #ifndef SBUSER_H
 #define SBUSER_H
 
-#include "sberr.h"
+#include <stdint.h>
+#include <stdbool.h>
+#include <unistd.h>
+#include <sys/stat.h>
+
+#include "errcodes.h"
+#include "dirent.h"
+#include "sbsysc.h"
 
 /*===========================================================================*/
 /* Module constants.                                                         */
@@ -45,6 +52,32 @@
 /*===========================================================================*/
 /* Module data structures and types.                                         */
 /*===========================================================================*/
+
+/**
+ * @brief   Type of a parameters structure passed to the sandbox.
+ */
+typedef struct sb_parameters {
+  /**
+   * @brief   Number of arguments.
+   */
+  int                       argc;
+  /**
+   * @brief   Vector of arguments.
+   */
+  char                      **argv;
+  /**
+   * @brief   Pointer to environment variables array.
+   */
+  char                      **envp;
+  /**
+   * @brief   Address of the physical sandbox end.
+   */
+  uint8_t                   *sb_end;
+  /**
+   * @brief   Address of heap end.
+   */
+  uint8_t                   *heap_end;
+} sb_parameters_t;
 
 /**
  * @brief   Type of system time counter.
@@ -90,16 +123,6 @@ typedef uint32_t eventmask_t;
  * @brief   Type of event flags.
  */
 typedef uint32_t eventflags_t;
-
-/**
- * @brief   Type of a sandbox API internal state variables.
- */
-typedef struct {
-  /**
-   * @brief   System tick frequency.
-   */
-  time_conv_t               frequency;
-} sbapi_state_t;
 
 /*===========================================================================*/
 /* Module macros.                                                            */
@@ -172,12 +195,12 @@ typedef struct {
 /* External declarations.                                                    */
 /*===========================================================================*/
 
-extern sbapi_state_t sb;
+extern sb_parameters_t __sb_parameters;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-  void sbApiInit(void);
+
 #ifdef __cplusplus
 }
 #endif
@@ -187,17 +210,29 @@ extern "C" {
 /*===========================================================================*/
 
 /**
+ * @brief   Posix-style file status.
+ *
+ * @param[in] pathname  file to be examined
+ * @param[in] statbuf   pointer to a @p stat structure
+ * @return              Operation result.
+ */
+static inline int sbStat(const char *pathname, struct stat *statbuf) {
+
+  __syscall3r(0, SB_POSIX_STAT, pathname, statbuf);
+  return (int)r0;
+}
+
+/**
  * @brief   Posix-style file open.
  *
  * @param[in] pathname  file to be opened
  * @param[in] flags     open mode
  * @return              The file descriptor or an error.
  */
-static inline uint32_t sbFileOpen(const char *pathname,
-                                  uint32_t flags) {
+static inline int sbOpen(const char *pathname, int flags) {
 
   __syscall3r(0, SB_POSIX_OPEN, pathname, flags);
-  return r0;
+  return (int)r0;
 }
 
 /**
@@ -206,10 +241,48 @@ static inline uint32_t sbFileOpen(const char *pathname,
  * @param[in] fd        file descriptor
  * @return              Operation result.
  */
-static inline uint32_t sbFileClose(uint32_t fd) {
+static inline int sbClose(int fd) {
 
   __syscall2r(0, SB_POSIX_CLOSE, fd);
-  return r0;
+  return (int)r0;
+}
+
+/**
+ * @brief   Posix-style file descriptor duplication.
+ *
+ * @param[in] fd        file descriptor
+ * @return              Operation result.
+ */
+static inline int sbDup(int fd) {
+
+  __syscall2r(0, SB_POSIX_DUP, fd);
+  return (int)r0;
+}
+
+/**
+ * @brief   Posix-style file descriptor assignment.
+ *
+ * @param[in] oldfd     old file descriptor
+ * @param[in] newfd     new file descriptor
+ * @return              Operation result.
+ */
+static inline int sbDup2(int oldfd, int newfd) {
+
+  __syscall3r(0, SB_POSIX_DUP, oldfd, newfd);
+  return (int)r0;
+}
+
+/**
+ * @brief   Posix-style file status.
+ *
+ * @param[in] fd        file descriptor
+ * @param[in] statbuf   pointer to a @p stat structure
+ * @return              Operation result.
+ */
+static inline int sbFstat(int fd, struct stat *statbuf) {
+
+  __syscall3r(0, SB_POSIX_FSTAT, fd, statbuf);
+  return (off_t)r0;
 }
 
 /**
@@ -220,12 +293,10 @@ static inline uint32_t sbFileClose(uint32_t fd) {
  * @param[in] count     number of bytes
  * @return              The number of bytes really transferred or an error.
  */
-static inline size_t sbFileRead(uint32_t fd,
-                                uint8_t *buf,
-                                size_t count) {
+static inline ssize_t sbRead(int fd, void *buf, size_t count) {
 
   __syscall4r(0, SB_POSIX_READ, fd, buf, count);
-  return (size_t)r0;
+  return (ssize_t)r0;
 }
 
 /**
@@ -236,12 +307,10 @@ static inline size_t sbFileRead(uint32_t fd,
  * @param[in] count     number of bytes
  * @return              The number of bytes really transferred or an error.
  */
-static inline size_t sbFileWrite(uint32_t fd,
-                                 const uint8_t *buf,
-                                 size_t count) {
+static inline ssize_t sbWrite(int fd, const void *buf, size_t count) {
 
   __syscall4r(0, SB_POSIX_WRITE, fd, buf, count);
-  return (size_t)r0;
+  return (ssize_t)r0;
 }
 
 /**
@@ -252,12 +321,98 @@ static inline size_t sbFileWrite(uint32_t fd,
  * @param[in] whence    operation mode
  * @return              Operation result.
  */
-static inline uint32_t sbFileSeek(uint32_t fd,
-                                  uint32_t offset,
-                                  uint32_t whence) {
+static inline off_t sbSeek(int fd, off_t offset, int whence) {
 
   __syscall4r(0, SB_POSIX_LSEEK, fd, offset, whence);
-  return (size_t)r0;
+  return (off_t)r0;
+}
+
+/**
+ * @brief   Posix-style directory read.
+ * @param[in] fd        file descriptor
+ * @param[in] buf       buffer pointer
+ * @param[in] count     number of bytes
+ * @return              The number of bytes really transferred or an error.
+ */
+static inline ssize_t sbGetdents(int fd, void *buf, size_t count) {
+
+  __syscall4r(0, SB_POSIX_GETDENTS, fd, buf, count);
+  return (ssize_t)r0;
+}
+
+/**
+ * @brief   Posix-style change current directory.
+ *
+ * @param[in] path      new current path
+ * @return              Operation result.
+ */
+static inline int sbChdir(const char *path) {
+
+  __syscall2r(0, SB_POSIX_CHDIR, path);
+  return (int)r0;
+}
+
+/**
+ * @brief   Posix-style get current directory.
+ *
+ * @param[in] buf       path buffer
+ * @param[in] size      path buffer size
+ * @return              Operation result.
+ */
+static inline int sbGetcwd(char *buf, size_t size) {
+
+  __syscall3r(0, SB_POSIX_GETCWD, buf, size);
+  return (int)r0;
+}
+
+/**
+ * @brief   Posix-style unlink file.
+ *
+ * @param[in] path      file to be unlinked
+ * @return              Operation result.
+ */
+static inline int sbUnlink(const char *path) {
+
+  __syscall2r(0, SB_POSIX_UNLINK, path);
+  return (int)r0;
+}
+
+/**
+ * @brief   Posix-style rename file or directory.
+ *
+ * @param[in] oldpath   old path to the file or directory
+ * @param[in] newpath   new path to the file or directory
+ * @return              Operation result.
+ */
+static inline int sbRename(const char *oldpath, const char *newpath) {
+
+  __syscall3r(0, SB_POSIX_RENAME, oldpath, newpath);
+  return (int)r0;
+}
+
+/**
+ * @brief   Posix-style create directory.
+ *
+ * @param[in] path      directory to be created
+ * @param[in] mode      directory creation mode
+ * @return              Operation result.
+ */
+static inline int sbMkdir(const char *path, mode_t mode) {
+
+  __syscall3r(0, SB_POSIX_MKDIR, path, mode);
+  return (int)r0;
+}
+
+/**
+ * @brief   Posix-style remove directory.
+ *
+ * @param[in] path      directory to be removed
+ * @return              Operation result.
+ */
+static inline int sbRmdir(const char *path) {
+
+  __syscall2r(0, SB_POSIX_RMDIR, path);
+  return (int)r0;
 }
 
 /**
@@ -441,6 +596,24 @@ static inline uint32_t sbEventBroadcastFlags(eventflags_t flags) {
 }
 
 /**
+ * @brief   Loads an elf file within the sandbox into the specified buffer.
+ * @details The file is loaded and relocated starting from the buffer
+ *          address.
+ *
+ * @param[in] fname     file to be loaded
+ * @param[in] buf       load buffer
+ * @param[in] size      size of the load buffer
+ *
+ * @api
+ */
+static inline int sbLoadElf(const char *fname, uint8_t *buf, size_t size) {
+
+  __syscall3r(12, fname, buf, size);
+  return (uint32_t)r0;
+
+}
+
+/**
  * @brief   Seconds to time interval.
  * @details Converts from seconds to system ticks number.
  * @note    The result is rounded upward to the next tick boundary.
@@ -452,8 +625,9 @@ static inline uint32_t sbEventBroadcastFlags(eventflags_t flags) {
  */
 static inline sysinterval_t sbTimeS2I(time_secs_t secs) {
   time_conv_t ticks;
+  uint32_t f = sbGetFrequency();
 
-  ticks = (time_conv_t)secs * sb.frequency;
+  ticks = (time_conv_t)secs * f;
 
 /*  sbDbgAssert(ticks <= (time_conv_t)TIME_MAX_INTERVAL,
               "conversion overflow");*/
@@ -473,9 +647,9 @@ static inline sysinterval_t sbTimeS2I(time_secs_t secs) {
  */
 static inline sysinterval_t sbTimeMS2I(time_msecs_t msec) {
   time_conv_t ticks;
+  uint32_t f = sbGetFrequency();
 
-  ticks = (((time_conv_t)msec * sb.frequency) +
-           (time_conv_t)999) / (time_conv_t)1000;
+  ticks = (((time_conv_t)msec * f) + (time_conv_t)999) / (time_conv_t)1000;
 
 /*  chDbgAssert(ticks <= (time_conv_t)TIME_MAX_INTERVAL,
               "conversion overflow");*/
@@ -495,9 +669,9 @@ static inline sysinterval_t sbTimeMS2I(time_msecs_t msec) {
  */
 static inline sysinterval_t sbTimeUS2I(time_usecs_t usec) {
   time_conv_t ticks;
+  uint32_t f = sbGetFrequency();
 
-  ticks = (((time_conv_t)usec * sb.frequency) +
-           (time_conv_t)999999) / (time_conv_t)1000000;
+  ticks = (((time_conv_t)usec * f) + (time_conv_t)999999) / (time_conv_t)1000000;
 
 /*  chDbgAssert(ticks <= (time_conv_t)TIME_MAX_INTERVAL,
               "conversion overflow");*/
@@ -517,10 +691,9 @@ static inline sysinterval_t sbTimeUS2I(time_usecs_t usec) {
  */
 static inline time_secs_t sbTimeI2S(sysinterval_t interval) {
   time_conv_t secs;
+  uint32_t f = sbGetFrequency();
 
-  secs = ((time_conv_t)interval +
-          sb.frequency -
-          (time_conv_t)1) / sb.frequency;
+  secs = ((time_conv_t)interval + f - (time_conv_t)1) / f;
 
 /*  sbDbgAssert(secs < (time_conv_t)((time_secs_t)-1),
               "conversion overflow");*/
@@ -540,10 +713,9 @@ static inline time_secs_t sbTimeI2S(sysinterval_t interval) {
  */
 static inline time_msecs_t sbTimeI2MS(sysinterval_t interval) {
   time_conv_t msecs;
+  uint32_t f = sbGetFrequency();
 
-  msecs = (((time_conv_t)interval * (time_conv_t)1000) +
-           sb.frequency - (time_conv_t)1) /
-          sb.frequency;
+  msecs = (((time_conv_t)interval * (time_conv_t)1000) + f - (time_conv_t)1) / f;
 
 /*  sbDbgAssert(msecs < (time_conv_t)((time_msecs_t)-1),
               "conversion overflow");*/
@@ -563,9 +735,9 @@ static inline time_msecs_t sbTimeI2MS(sysinterval_t interval) {
  */
 static inline time_usecs_t sbTimeI2US(sysinterval_t interval) {
   time_conv_t usecs;
+  uint32_t f = sbGetFrequency();
 
-  usecs = (((time_conv_t)interval * (time_conv_t)1000000) +
-           sb.frequency - (time_conv_t)1) / sb.frequency;
+  usecs = (((time_conv_t)interval * (time_conv_t)1000000) + f - (time_conv_t)1) / f;
 
 /*  sbDbgAssert(usecs <= (time_conv_t)((time_usecs_t)-1),
               "conversion overflow");*/

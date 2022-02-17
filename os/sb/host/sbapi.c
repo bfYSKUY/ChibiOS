@@ -19,7 +19,7 @@
 
 /**
  * @file    sb/host/sbhost.c
- * @brief   ARM sandbox host API code.
+ * @brief   ARM SandBox host API code.
  *
  * @addtogroup ARM_SANDBOX_HOSTAPI
  * @{
@@ -40,7 +40,9 @@
  * @name    Standard API handlers
  * @{
  */
+#if (SB_CFG_ENABLE_VFS == TRUE) || defined(__DOXYGEN__)
 #define SB_SVC0_HANDLER         sb_api_stdio
+#endif
 #define SB_SVC1_HANDLER         sb_api_exit
 #define SB_SVC2_HANDLER         sb_api_get_systime
 #define SB_SVC3_HANDLER         sb_api_get_frequency
@@ -52,6 +54,7 @@
 #define SB_SVC9_HANDLER         sb_api_wait_any_timeout
 #define SB_SVC10_HANDLER        sb_api_wait_all_timeout
 #define SB_SVC11_HANDLER        sb_api_broadcast_flags
+#define SB_SVC12_HANDLER        sb_api_loadelf
 /** @} */
 
 #define __SVC(x) asm volatile ("svc " #x)
@@ -915,50 +918,153 @@ const port_syscall_t sb_syscalls[256] = {
 
 static void sb_undef_handler(struct port_extctx *ectxp) {
 
-  ectxp->r0 = SB_ERR_ENOSYS;
+  ectxp->r0 = CH_RET_ENOSYS;
+}
+
+static thread_t *sb_msg_wait_timeout_s(sysinterval_t timeout) {
+  thread_t *currtp = chThdGetSelfX();
+  thread_t *tp;
+
+  chDbgCheckClassS();
+
+  /* The sender thread could have timed out in sbSendMessageTimeout() so
+     repeating the wait if it did.*/
+  do {
+    if (!chMsgIsPendingI(currtp)) {
+      if (chSchGoSleepTimeoutS(CH_STATE_WTMSG, timeout) != MSG_OK) {
+        return NULL;
+      }
+    }
+  } while(ch_queue_isempty(&currtp->msgqueue));
+
+  /* Dequeuing the sender thread and returning it.*/
+  tp = threadref(ch_queue_fifo_remove(&currtp->msgqueue));
+  tp->state = CH_STATE_SNDMSG;
+
+  return tp;
+}
+
+
+static void sb_cleanup(void) {
+#if SB_CFG_ENABLE_VFS == TRUE
+  sb_class_t *sbp = (sb_class_t *)chThdGetSelfX()->ctx.syscall.p;
+  unsigned fd;
+
+  /* Closing all file descriptors.*/
+  for (fd = 0U; fd < SB_CFG_FD_NUM; fd++) {
+    if (sbp->io.vfs_nodes[fd] != NULL) {
+      sbp->io.vfs_nodes[fd]->vmt->release(sbp->io.vfs_nodes[fd]);
+      sbp->io.vfs_nodes[fd] = NULL;
+    }
+  }
+#endif
 }
 
 /*===========================================================================*/
 /* Module exported functions.                                                */
 /*===========================================================================*/
 
+void __sb_abort(msg_t msg) {
+
+  chSysUnlock();
+
+  sb_cleanup();
+
+  chSysLock();
+#if CH_CFG_USE_EVENTS == TRUE
+  chEvtBroadcastI(&sb.termination_es);
+#endif
+  chThdExitS(msg);
+  chSysHalt("zombies");
+}
+
+#if (SB_CFG_ENABLE_VFS == TRUE) || defined(__DOXYGEN__)
 void sb_api_stdio(struct port_extctx *ectxp) {
 
   switch (ectxp->r0) {
   case SB_POSIX_OPEN:
-    ectxp->r0 = sb_posix_open((const char *)ectxp->r1,
-                              ectxp->r2);
+    ectxp->r0 = (uint32_t)sb_posix_open((const char *)ectxp->r1,
+                                        (int)ectxp->r2);
     break;
   case SB_POSIX_CLOSE:
-    ectxp->r0 = sb_posix_close(ectxp->r1);
+    ectxp->r0 = (uint32_t)sb_posix_close((int)ectxp->r1);
+    break;
+  case SB_POSIX_DUP:
+    ectxp->r0 = (uint32_t)sb_posix_dup((int)ectxp->r1);
+    break;
+  case SB_POSIX_DUP2:
+    ectxp->r0 = (uint32_t)sb_posix_dup2((int)ectxp->r1,
+                                        (int)ectxp->r2);
+    break;
+  case SB_POSIX_FSTAT:
+    ectxp->r0 = (uint32_t)sb_posix_fstat((int)ectxp->r1,
+                                         (struct stat *)ectxp->r2);
     break;
   case SB_POSIX_READ:
-    ectxp->r0 = sb_posix_read(ectxp->r1,
-                              (void *)ectxp->r2,
-                              (size_t)ectxp->r3);
+    ectxp->r0 = (uint32_t)sb_posix_read((int)ectxp->r1,
+                                        (void *)ectxp->r2,
+                                        (size_t)ectxp->r3);
     break;
   case SB_POSIX_WRITE:
-    ectxp->r0 = sb_posix_write(ectxp->r1,
-                               (const void *)ectxp->r2,
-                               (size_t)ectxp->r3);
+    ectxp->r0 = (uint32_t)sb_posix_write((int)ectxp->r1,
+                                         (const void *)ectxp->r2,
+                                         (size_t)ectxp->r3);
     break;
   case SB_POSIX_LSEEK:
-    ectxp->r0 = sb_posix_lseek(ectxp->r1,
-                               ectxp->r2,
-                               ectxp->r3);
+    ectxp->r0 = (uint32_t)sb_posix_lseek((int)ectxp->r1,
+                                         (off_t)ectxp->r2,
+                                         (int)ectxp->r3);
+    break;
+  case SB_POSIX_GETDENTS:
+    ectxp->r0 = (uint32_t)sb_posix_getdents((int)ectxp->r1,
+                                            (void *)ectxp->r2,
+                                            (size_t)ectxp->r3);
+    break;
+  case SB_POSIX_CHDIR:
+    ectxp->r0 = (uint32_t)sb_posix_chdir((const char *)ectxp->r1);
+    break;
+  case SB_POSIX_GETCWD:
+    ectxp->r0 = (uint32_t)sb_posix_getcwd((char *)ectxp->r1,
+                                          (size_t)ectxp->r2);
+    break;
+  case SB_POSIX_UNLINK:
+    ectxp->r0 = (uint32_t)sb_posix_unlink((const char *)ectxp->r1);
+    break;
+  case SB_POSIX_RENAME:
+    ectxp->r0 = (uint32_t)sb_posix_rename((const char *)ectxp->r1,
+                                          (const char *)ectxp->r2);
+    break;
+  case SB_POSIX_MKDIR:
+    ectxp->r0 = (uint32_t)sb_posix_mkdir((const char *)ectxp->r1,
+                                         (mode_t)ectxp->r2);
+    break;
+  case SB_POSIX_RMDIR:
+    ectxp->r0 = (uint32_t)sb_posix_rmdir((const char *)ectxp->r1);
+    break;
+  case SB_POSIX_STAT:
+    ectxp->r0 = (uint32_t)sb_posix_stat((const char *)ectxp->r1,
+                                        (struct stat *)ectxp->r2);
     break;
   default:
-    ectxp->r0 = SB_ERR_ENOSYS;
+    ectxp->r0 = (uint32_t)CH_RET_ENOSYS;
     break;
   }
 }
+#endif /* SB_CFG_ENABLE_VFS == TRUE */
 
 void sb_api_exit(struct port_extctx *ectxp) {
 
-  chThdExit((msg_t )ectxp->r0);
+  sb_cleanup();
+
+  chSysLock();
+#if CH_CFG_USE_EVENTS == TRUE
+  chEvtBroadcastI(&sb.termination_es);
+#endif
+  chThdExitS((msg_t )ectxp->r0);
+  chSysUnlock();
 
   /* Cannot get here.*/
-  ectxp->r0 = SB_ERR_ENOSYS;
+  ectxp->r0 = CH_RET_ENOSYS;
 }
 
 void sb_api_get_systime(struct port_extctx *ectxp) {
@@ -978,48 +1084,58 @@ void sb_api_sleep(struct port_extctx *ectxp) {
     chThdSleep(interval);
   }
 
-  ectxp->r0 = SB_ERR_NOERROR;
+  ectxp->r0 = CH_RET_SUCCESS;
 }
 
 void sb_api_sleep_until_windowed(struct port_extctx *ectxp) {
 
   chThdSleepUntilWindowed((systime_t )ectxp->r0, (systime_t )ectxp->r1);
 
-  ectxp->r0 = SB_ERR_NOERROR;
+  ectxp->r0 = CH_RET_SUCCESS;
 }
 
 void sb_api_wait_message(struct port_extctx *ectxp) {
 #if CH_CFG_USE_MESSAGES == TRUE
-  sb_class_t *sbcp = (sb_class_t *)chThdGetSelfX()->ctx.syscall.p;
+  sb_class_t *sbp = (sb_class_t *)chThdGetSelfX()->ctx.syscall.p;
 
-  if (sbcp->msg_tp == NULL) {
-    sbcp->msg_tp = chMsgWait();
-    ectxp->r0 = (uint32_t)chMsgGet(sbcp->msg_tp);
+  chSysLock();
+
+  if (sbp->msg_tp == NULL) {
+    sbp->msg_tp = sb_msg_wait_timeout_s(TIME_INFINITE);
+    ectxp->r0 = (uint32_t)chMsgGet(sbp->msg_tp);
   }
   else {
-    chMsgRelease(sbcp->msg_tp, MSG_RESET);
-    sbcp->msg_tp = NULL;
-    ectxp->r0 = SB_ERR_EBUSY;
+    thread_t *tp = sbp->msg_tp;
+    sbp->msg_tp = NULL;
+    chMsgReleaseS(tp, MSG_RESET);
+    ectxp->r0 = MSG_RESET;
   }
+
+  chSysUnlock();
 #else
-  ectxp->r0 = SB_ERR_NOT_IMPLEMENTED;
+  ectxp->r0 = CH_RET_ENOSYS;
 #endif
 }
 
 void sb_api_reply_message(struct port_extctx *ectxp) {
 #if CH_CFG_USE_MESSAGES == TRUE
-  sb_class_t *sbcp = (sb_class_t *)chThdGetSelfX()->ctx.syscall.p;
+  sb_class_t *sbp = (sb_class_t *)chThdGetSelfX()->ctx.syscall.p;
 
-  if (sbcp->msg_tp != NULL) {
-    chMsgRelease(sbcp->msg_tp, (msg_t )ectxp->r0);
-    sbcp->msg_tp = NULL;
-    ectxp->r0 = SB_ERR_NOERROR;
+  chSysLock();
+
+  if (sbp->msg_tp != NULL) {
+    thread_t *tp = sbp->msg_tp;
+    sbp->msg_tp = NULL;
+    chMsgReleaseS(tp, (msg_t )ectxp->r0);
+    ectxp->r0 = CH_RET_SUCCESS;
   }
   else {
-    ectxp->r0 = SB_ERR_EBUSY;
+    ectxp->r0 = MSG_RESET;
   }
+
+  chSysUnlock();
 #else
-  ectxp->r0 = SB_ERR_NOT_IMPLEMENTED;
+  ectxp->r0 = CH_RET_ENOSYS;
 #endif
 }
 
@@ -1029,7 +1145,7 @@ void sb_api_wait_one_timeout(struct port_extctx *ectxp) {
   ectxp->r0 = (uint32_t)chEvtWaitOneTimeout((eventmask_t )ectxp->r0,
                                             (sysinterval_t )ectxp->r1);
 #else
-  ectxp->r0 =  SB_ERR_NOT_IMPLEMENTED;
+  ectxp->r0 =  CH_RET_ENOSYS;
 #endif
 }
 
@@ -1039,7 +1155,7 @@ void sb_api_wait_any_timeout(struct port_extctx *ectxp) {
   ectxp->r0 = (uint32_t)chEvtWaitAnyTimeout((eventmask_t )ectxp->r0,
                                             (sysinterval_t )ectxp->r1);
 #else
-  ectxp->r0 =  SB_ERR_NOT_IMPLEMENTED;
+  ectxp->r0 =  CH_RET_ENOSYS;
 #endif
 }
 
@@ -1049,18 +1165,40 @@ void sb_api_wait_all_timeout(struct port_extctx *ectxp) {
   ectxp->r0 = (uint32_t)chEvtWaitAllTimeout((eventmask_t )ectxp->r0,
                                             (sysinterval_t )ectxp->r1);
 #else
-  ectxp->r0 =  SB_ERR_NOT_IMPLEMENTED;
+  ectxp->r0 =  CH_RET_ENOSYS;
 #endif
 }
 
 void sb_api_broadcast_flags(struct port_extctx *ectxp) {
 #if CH_CFG_USE_EVENTS == TRUE
-  sb_class_t *sbcp = (sb_class_t *)chThdGetSelfX()->ctx.syscall.p;
+  sb_class_t *sbp = (sb_class_t *)chThdGetSelfX()->ctx.syscall.p;
 
-  chEvtBroadcastFlags(&sbcp->es, (eventflags_t )ectxp->r0);
-  ectxp->r0 = SB_ERR_NOERROR;
+  chEvtBroadcastFlags(&sbp->es, (eventflags_t )ectxp->r0);
+  ectxp->r0 = CH_RET_SUCCESS;
 #else
-  ectxp->r0 = SB_ERR_NOT_IMPLEMENTED;
+  ectxp->r0 = CH_RET_ENOSYS;
+#endif
+}
+
+void sb_api_loadelf(struct port_extctx *ectxp) {
+#if (SB_CFG_ENABLE_VFS == TRUE) || defined(__DOXYGEN__)
+  sb_class_t *sbp = (sb_class_t *)chThdGetSelfX()->ctx.syscall.p;
+  const char *fname = (const char *)ectxp->r0;
+  uint8_t *buf = (uint8_t *)ectxp->r1;
+  size_t size = (size_t)ectxp->r2;
+
+  if ((sb_check_string(sbp, (void *)fname, VFS_CFG_PATHLEN_MAX + 1) == (size_t)0) ||
+       !MEM_IS_ALIGNED(buf, MEM_NATURAL_ALIGN) ||
+       !MEM_IS_ALIGNED(size, MEM_NATURAL_ALIGN) ||
+       !sb_is_valid_write_range(sbp, buf, size)) {
+    ectxp->r0 = CH_RET_EFAULT;
+  }
+  else {
+    memory_area_t ma = {buf, size};
+    ectxp->r0 = (uint32_t)sbElfLoadFile(sbp->config->vfs_driver, fname, &ma);
+  }
+#else
+  ectxp->r0 = CH_RET_ENOSYS;
 #endif
 }
 

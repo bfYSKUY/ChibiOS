@@ -29,20 +29,24 @@
 /**
  * @brief   HSI48 clock frequency.
  */
-#define STM32_HSI48CLK          48000000
+#define STM32_HSI48CLK          48000000U
 
 /*===========================================================================*/
 /* Derived constants and error checks.                                       */
 /*===========================================================================*/
 
 /* Registry checks for robustness.*/
-#if !defined(STM32_HAS_HSI48)
-#error "STM32_HAS_HSI48 not defined in stm32_registry.h"
+#if !defined(STM32_RCC_HAS_HSI48)
+#error "STM32_RCC_HAS_HSI48 not defined in stm32_registry.h"
 #endif
 
 /* Checks on configurations.*/
 #if !defined(STM32_HSI48_ENABLED)
 #error "STM32_HSI48_ENABLED not defined in mcuconf.h"
+#endif
+
+#if (STM32_RCC_HAS_HSI48 == FALSE) && (STM32_HSI48_ENABLED == TRUE)
+#error "HSI48 not present on this device"
 #endif
 
 /*===========================================================================*/
@@ -57,13 +61,43 @@
 /* Driver local functions.                                                   */
 /*===========================================================================*/
 
-static inline void hsi48_init(void) {
+#if STM32_RCC_HAS_HSI48 == TRUE
+#if defined(RCC_CRRCR_HSI48ON)
+__STATIC_INLINE void hsi48_enable(void) {
+
+  RCC->CRRCR |= RCC_CRRCR_HSI48ON;
+  while ((RCC->CRRCR & RCC_CRRCR_HSI48RDY) == 0U) {
+    /* Waiting for HSI48 activation.*/
+  }
+}
+
+__STATIC_INLINE void hsi48_disable(void) {
+
+  RCC->CRRCR &= ~RCC_CRRCR_HSI48ON;
+}
+#endif /* defined(RCC_CRRCR_HSI48ON) */
+
+#if defined(RCC_CR_HSI48ON)
+__STATIC_INLINE void hsi48_enable(void) {
+
+  RCC->CR |= RCC_CR_HSI48ON;
+  while ((RCC->CR & RCC_CR_HSI48RDY) == 0U) {
+    /* Waiting for HSI48 activation.*/
+  }
+}
+
+__STATIC_INLINE void hsi48_disable(void) {
+
+  RCC->CR &= ~RCC_CR_HSI48ON;
+}
+#endif /* defined(RCC_CR_HSI48ON) */
+#endif /* STM32_RCC_HAS_HSI48 == TRUE */
+
+__STATIC_INLINE void hsi48_init(void) {
 
 #if STM32_HSI48_ENABLED
   /* HSI activation.*/
-  RCC->CRRCR |= RCC_CRRCR_HSI48ON;
-  while ((RCC->CRRCR & RCC_CRRCR_HSI48RDY) == 0) {
-  }
+  hsi48_enable();
 #endif
 }
 

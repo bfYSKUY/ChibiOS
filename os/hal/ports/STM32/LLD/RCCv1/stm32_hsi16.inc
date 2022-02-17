@@ -29,15 +29,15 @@
 /**
  * @brief   HSI16 clock frequency.
  */
-#define STM32_HSI16CLK          16000000
+#define STM32_HSI16CLK          16000000U
 
 /*===========================================================================*/
 /* Derived constants and error checks.                                       */
 /*===========================================================================*/
 
 /* Registry checks for robustness.*/
-#if !defined(STM32_HAS_HSI16)
-#error "STM32_HAS_HSI16 not defined in stm32_registry.h"
+#if !defined(STM32_RCC_HAS_HSI16)
+#error "STM32_RCC_HAS_HSI16 not defined in stm32_registry.h"
 #endif
 
 /* Checks on configurations.*/
@@ -57,13 +57,36 @@
 /* Driver local functions.                                                   */
 /*===========================================================================*/
 
-static inline void hsi16_init(void) {
+__STATIC_INLINE void hsi16_enable(void) {
+
+  RCC->CR |= RCC_CR_HSION;
+  while ((RCC->CR & RCC_CR_HSIRDY) == 0U) {
+    /* Waiting for HSI16 activation.*/
+  }
+}
+
+__STATIC_INLINE void hsi16_disable(void) {
+
+  RCC->CR &= ~RCC_CR_HSION;
+}
+
+__STATIC_INLINE void hsi16_reset(void) {
+
+  /* Making sure HSI is active and ready.*/
+  hsi16_enable();
+
+  /* Clocking from HSI, in case HSI was not the default source.*/
+  RCC->CFGR = RCC_CFGR_SW_HSI;
+  while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_HSI) {
+    /* Wait until HSI is selected.*/
+  }
+}
+
+__STATIC_INLINE void hsi16_init(void) {
 
 #if STM32_HSI16_ENABLED
   /* HSI activation.*/
-  RCC->CR |= RCC_CR_HSION;
-  while ((RCC->CR & RCC_CR_HSIRDY) == 0) {
-  }
+  hsi16_enable();
 #endif
 }
 

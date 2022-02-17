@@ -263,7 +263,7 @@ typedef uint32_t sio_events_mask_t;
 #define sio_lld_driver_fields                                               \
   /* Pointer to the USARTx registers block.*/                               \
   USART_TypeDef             *usart;                                         \
-  /* USART clock frequency.*/                                               \
+  /* Clock frequency for the associated USART/UART.*/                       \
   uint32_t                  clock
 
 /**
@@ -364,7 +364,7 @@ extern SIODriver LPSIOD1;
 extern "C" {
 #endif
   void sio_lld_init(void);
-  bool  sio_lld_start(SIODriver *siop);
+  msg_t  sio_lld_start(SIODriver *siop);
   void sio_lld_stop(SIODriver *siop);
   void sio_lld_start_operation(SIODriver *siop);
   void sio_lld_stop_operation(SIODriver *siop);

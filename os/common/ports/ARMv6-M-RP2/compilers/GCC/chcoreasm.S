@@ -18,10 +18,10 @@
 */
 
 /**
- * @file    ARMv6-M/compilers/GCC/chcoreasm.S
- * @brief   ARMv6-M port low level code.
+ * @file    ARMv6-M-RP2/compilers/GCC/chcoreasm.S
+ * @brief   ARMv6-M-RP2 port low level code.
  *
- * @addtogroup ARMv6_M_GCC_CORE
+ * @addtogroup ARMV6M_RP2_GCC_CORE
  * @{
  */
 
@@ -105,7 +105,7 @@ __port_thread_start:
 #if CH_DBG_STATISTICS
                 bl      __stats_stop_measure_crit_thd
 #endif
-#if CH_CFG_SMP_MODE != FALSE
+#if CH_CFG_SMP_MODE == TRUE
                 bl      __port_spinlock_release
 #endif
                 cpsie   i

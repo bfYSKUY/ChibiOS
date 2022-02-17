@@ -127,19 +127,14 @@
  *
  * @notapi
  */
-#define firstprio(rlp)                  ((rlp)->next->prio)
+#define firstprio(rlp)              ((rlp)->next->prio)
 
 /**
  * @brief   Current thread pointer get macro.
  * @note    This macro is not meant to be used in the application code but
  *          only from within the kernel, use @p chThdGetSelfX() instead.
  */
-#define __sch_get_currthread(oip)       (oip)->rlist.current
-
-/**
- * @brief   Current thread pointer set macro.
- */
-#define __sch_set_currthread(oip, tp)   (oip)->rlist.current = (tp)
+#define __sch_get_currthread()      __instance_get_currthread(currcore)
 
 /*===========================================================================*/
 /* External declarations.                                                    */
@@ -162,9 +157,9 @@ extern "C" {
   void chSchDoPreemption(void);
   void chSchPreemption(void);
   void chSchDoYieldS(void);
-  thread_t *chSchSelectFirstI(void);
+  thread_t *chSchSelectFirst(void);
 #if CH_CFG_OPTIMIZE_SPEED == FALSE
-  void ch_sch_prio_insert(ch_queue_t *tp, ch_queue_t *qp);
+  void ch_sch_prio_insert(ch_queue_t *qp, ch_queue_t *tp);
 #endif /* CH_CFG_OPTIMIZE_SPEED == FALSE */
 #ifdef __cplusplus
 }
@@ -177,13 +172,13 @@ extern "C" {
 /* If the performance code path has been chosen then all the following
    functions are inlined into the various kernel modules.*/
 #if CH_CFG_OPTIMIZE_SPEED == TRUE
-static inline void ch_sch_prio_insert(ch_queue_t *tp, ch_queue_t *qp) {
+static inline void ch_sch_prio_insert(ch_queue_t *qp, ch_queue_t *tp) {
 
   ch_queue_t *cp = qp;
   do {
     cp = cp->next;
   } while ((cp != qp) &&
-           (((thread_t *)cp)->hdr.pqueue.prio >= ((thread_t *)tp)->hdr.pqueue.prio));
+           (threadref(cp)->hdr.pqueue.prio >= threadref(tp)->hdr.pqueue.prio));
   tp->next       = cp;
   tp->prev       = cp->prev;
   tp->prev->next = tp;

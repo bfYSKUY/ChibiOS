@@ -21,7 +21,7 @@
  * @file    ARMv7-M/chcore.h
  * @brief   ARMv7-M port macros and structures.
  *
- * @addtogroup ARMv7_M_CORE
+ * @addtogroup ARMV7M_CORE
  * @{
  */
 
@@ -67,12 +67,12 @@
 /**
  * @brief   Disabled value for BASEPRI register.
  */
-#define CORTEX_BASEPRI_DISABLED         0U
+#define CORTEX_BASEPRI_DISABLED         0
 
 /**
  * @brief   Total priority levels.
  */
-#define CORTEX_PRIORITY_LEVELS          (1U << CORTEX_PRIORITY_BITS)
+#define CORTEX_PRIORITY_LEVELS          (1 << CORTEX_PRIORITY_BITS)
 
 /**
  * @brief   Minimum priority level.
@@ -85,7 +85,13 @@
  * @brief   Maximum priority level.
  * @details The maximum allowed priority level is always zero.
  */
-#define CORTEX_MAXIMUM_PRIORITY         0U
+#define CORTEX_MAXIMUM_PRIORITY         0
+
+/**
+ * @brief   SVCALL handler priority.
+ */
+#define CORTEX_PRIORITY_SVCALL          (CORTEX_MAXIMUM_PRIORITY +          \
+                                         CORTEX_FAST_PRIORITIES)
 
 /**
  * @brief   PendSV priority level.
@@ -98,8 +104,7 @@
 /**
  * @brief   Priority level to priority mask conversion macro.
  */
-#define CORTEX_PRIO_MASK(n)                                                 \
-  ((n) << (8U - (unsigned)CORTEX_PRIORITY_BITS))
+#define CORTEX_PRIO_MASK(n)             ((n) << (8 - CORTEX_PRIORITY_BITS))
 /** @} */
 
 /*===========================================================================*/
@@ -149,12 +154,12 @@
  * @details This size depends on the idle thread implementation, usually
  *          the idle thread should take no more space than those reserved
  *          by @p PORT_INT_REQUIRED_STACK.
- * @note    In this port it is set to 16 because the idle thread does have
+ * @note    In this port it is set to 64 because the idle thread does have
  *          a stack frame when compiling without optimizations. You may
  *          reduce this value to zero when compiling with optimizations.
  */
 #if !defined(PORT_IDLE_THREAD_STACK_SIZE) || defined(__DOXYGEN__)
-#define PORT_IDLE_THREAD_STACK_SIZE     16
+#define PORT_IDLE_THREAD_STACK_SIZE     64
 #endif
 
 /**
@@ -170,22 +175,19 @@
 #define PORT_INT_REQUIRED_STACK         64
 #endif
 
-
-/**
- * @brief   Enables an alternative timer implementation.
- * @details Usually the port uses a timer interface defined in the file
- *          @p chcore_timer.h, if this option is enabled then the file
- *          @p chcore_timer_alt.h is included instead.
- */
-#if !defined(PORT_USE_ALT_TIMER)
-#define PORT_USE_ALT_TIMER              FALSE
-#endif
-
 /**
  * @brief   Enables the use of the WFI instruction in the idle thread loop.
  */
 #if !defined(CORTEX_ENABLE_WFI_IDLE)
 #define CORTEX_ENABLE_WFI_IDLE          FALSE
+#endif
+
+/**
+ * @brief   Number of upper priority levels reserved as fast interrupts.
+ * @note    The default reserves priorities 0 and 1 for fast interrupts.
+ */
+#if !defined(CORTEX_FAST_PRIORITIES)
+#define CORTEX_FAST_PRIORITIES          2
 #endif
 
 /**
@@ -221,20 +223,6 @@
 #endif
 
 /**
- * @brief   SVCALL handler priority.
- * @note    The default SVCALL handler priority is defaulted to
- *          @p CORTEX_MAXIMUM_PRIORITY+1, this reserves the
- *          @p CORTEX_MAXIMUM_PRIORITY priority level as fast interrupts
- *          priority level.
- */
-#if !defined(CORTEX_PRIORITY_SVCALL)
-#define CORTEX_PRIORITY_SVCALL          (CORTEX_MAXIMUM_PRIORITY + 1U)
-#elif !PORT_IRQ_IS_VALID_PRIORITY(CORTEX_PRIORITY_SVCALL)
-/* If it is externally redefined then better perform a validity check on it.*/
-#error "invalid priority level specified for CORTEX_PRIORITY_SVCALL"
-#endif
-
-/**
  * @brief   NVIC PRIGROUP initialization expression.
  * @details The default assigns all available priority bits as preemption
  *          priority with no sub-priority.
@@ -249,6 +237,11 @@
 
 #if (PORT_SWITCHED_REGIONS_NUMBER < 0) || (PORT_SWITCHED_REGIONS_NUMBER > 4)
   #error "invalid PORT_SWITCHED_REGIONS_NUMBER value"
+#endif
+
+#if (CORTEX_FAST_PRIORITIES < 0) ||                                         \
+    (CORTEX_FAST_PRIORITIES > (CORTEX_PRIORITY_LEVELS / 4))
+#error "invalid CORTEX_FAST_PRIORITIES value specified"
 #endif
 
 /**
@@ -388,7 +381,12 @@
   /**
    * @brief   Maximum usable priority for normal ISRs.
    */
-  #define CORTEX_MAX_KERNEL_PRIORITY    (CORTEX_PRIORITY_SVCALL + 1U)
+  #define CORTEX_MAX_KERNEL_PRIORITY    (CORTEX_PRIORITY_SVCALL + 1)
+
+  /**
+   * @brief   Minimum usable priority for normal ISRs.
+   */
+  #define CORTEX_MIN_KERNEL_PRIORITY    (CORTEX_PRIORITY_LEVELS - 1)
 
   /**
    * @brief   BASEPRI level within kernel lock.
@@ -397,7 +395,8 @@
     CORTEX_PRIO_MASK(CORTEX_MAX_KERNEL_PRIORITY)
 
 #else
-  #define CORTEX_MAX_KERNEL_PRIORITY    0U
+  #define CORTEX_MAX_KERNEL_PRIORITY    0
+  #define CORTEX_MIN_KERNEL_PRIORITY    (CORTEX_PRIORITY_LEVELS - 1)
 #endif
 
 /* The following code is not processed when the file is included from an
@@ -422,14 +421,6 @@
 /*===========================================================================*/
 /* Module data structures and types.                                         */
 /*===========================================================================*/
-
-/**
- * @brief   Type of stack and memory alignment enforcement.
- * @note    In this architecture the stack alignment is enforced to 64 bits,
- *          32 bits alignment is supported by hardware but deprecated by ARM,
- *          the implementation choice is to not offer the option.
- */
-typedef uint64_t stkalign_t;
 
 /**
  * @brief   Interrupt saved context.
@@ -554,7 +545,12 @@ struct port_context {
  * @brief   Priority level verification macro.
  */
 #define PORT_IRQ_IS_VALID_KERNEL_PRIORITY(n)                                \
-  (((n) >= CORTEX_MAX_KERNEL_PRIORITY) && ((n) < CORTEX_PRIORITY_LEVELS))
+  (((n) >= CORTEX_MAX_KERNEL_PRIORITY) && ((n) <= CORTEX_MIN_KERNEL_PRIORITY))
+
+/**
+ * @brief   Optimized thread function declaration macro.
+ */
+#define PORT_THD_FUNCTION(tname, arg) void tname(void *arg)
 
 /* By default threads have no syscall context information.*/
 #if (PORT_USE_SYSCALL == TRUE) || defined(__DOXYGEN__)
@@ -611,14 +607,14 @@ struct port_context {
  *          by an @p port_intctx structure.
  */
 #define PORT_SETUP_CONTEXT(tp, wbase, wtop, pf, arg) do {                   \
-  (tp)->ctx.sp = (struct port_intctx *)((uint8_t *)(wtop) -                 \
-                                        sizeof (struct port_intctx));       \
+  (tp)->ctx.sp = (struct port_intctx *)(void *)								\
+  	  	  	  	   ((uint8_t *)(wtop) - sizeof (struct port_intctx));       \
   (tp)->ctx.sp->r4 = (uint32_t)(pf);                                        \
   (tp)->ctx.sp->r5 = (uint32_t)(arg);                                       \
   (tp)->ctx.sp->lr = (uint32_t)__port_thread_start;                         \
   __PORT_SETUP_CONTEXT_MPU(tp);                                             \
   __PORT_SETUP_CONTEXT_SYSCALL(tp, wtop);                                   \
-} while (0)
+} while (false)
 
 /**
  * @brief   Context switch area size.
@@ -713,11 +709,11 @@ struct port_context {
   #if PORT_ENABLE_GUARD_PAGES == FALSE
     #define port_switch(ntp, otp) do {                                      \
       struct port_intctx *r13 = (struct port_intctx *)__get_PSP();          \
-      if ((stkalign_t *)(r13 - 1) < (otp)->wabase) {                        \
+      if ((stkalign_t *)(void *)(r13 - 1) < (otp)->wabase) {                \
         chSysHalt("stack overflow");                                        \
       }                                                                     \
       __port_switch(ntp, otp);                                              \
-    } while (0)
+    } while (false)
 
   #else
     #define port_switch(ntp, otp) do {                                      \
@@ -726,7 +722,7 @@ struct port_context {
       /* Setting up the guard page for the switched-in thread.*/            \
       mpuSetRegionAddress(PORT_USE_GUARD_MPU_REGION,                        \
                           chThdGetSelfX()->wabase);                         \
-    } while (0)
+    } while (false)
   #endif
 #endif
 
@@ -751,14 +747,6 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif
-
-#if CH_CFG_ST_TIMEDELTA > 0
-#if PORT_USE_ALT_TIMER == FALSE
-#include "chcore_timer.h"
-#else /* PORT_USE_ALT_TIMER != FALSE */
-#include "chcore_timer_alt.h"
-#endif /* PORT_USE_ALT_TIMER != FALSE */
-#endif /* CH_CFG_ST_TIMEDELTA > 0 */
 
 /*===========================================================================*/
 /* Module inline functions.                                                  */
@@ -931,6 +919,18 @@ __STATIC_FORCEINLINE rtcnt_t port_rt_get_counter_value(void) {
 
   return DWT->CYCCNT;
 }
+
+#endif /* !defined(_FROM_ASM_) */
+
+/*===========================================================================*/
+/* Module late inclusions.                                                   */
+/*===========================================================================*/
+
+#if !defined(_FROM_ASM_)
+
+#if CH_CFG_ST_TIMEDELTA > 0
+#include "chcore_timer.h"
+#endif /* CH_CFG_ST_TIMEDELTA > 0 */
 
 #endif /* !defined(_FROM_ASM_) */
 

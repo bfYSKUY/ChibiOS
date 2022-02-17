@@ -248,18 +248,18 @@ typedef struct {
 extern "C" {
 #endif
 #if (CH_DBG_TRACE_MASK != CH_DBG_TRACE_MASK_DISABLED) || defined(__DOXYGEN__)
-  void __trace_init(os_instance_t *oip);
+  void __trace_object_init(trace_buffer_t *tbp);
   void __trace_ready(thread_t *tp, msg_t msg);
   void __trace_switch(thread_t *ntp, thread_t *otp);
   void __trace_isr_enter(const char *isr);
   void __trace_isr_leave(const char *isr);
   void __trace_halt(const char *reason);
-  void chDbgWriteTraceI(void *up1, void *up2);
-  void chDbgWriteTrace(void *up1, void *up2);
-  void chDbgSuspendTraceI(uint16_t mask);
-  void chDbgSuspendTrace(uint16_t mask);
-  void chDbgResumeTraceI(uint16_t mask);
-  void chDbgResumeTrace(uint16_t mask);
+  void chTraceWriteI(void *up1, void *up2);
+  void chTraceWrite(void *up1, void *up2);
+  void chTraceSuspendI(uint16_t mask);
+  void chTraceSuspend(uint16_t mask);
+  void chTraceResumeI(uint16_t mask);
+  void chTraceResume(uint16_t mask);
 #endif /* CH_DBG_TRACE_MASK != CH_DBG_TRACE_MASK_DISABLED */
 #ifdef __cplusplus
 }

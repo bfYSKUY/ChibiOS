@@ -74,196 +74,84 @@
 *****************************************************************************
 
 *** Next ***
-- NEW: Added support for STM32WLx5.
-- NEW: Added initial support for RP2040.
-- NEW: Added time conversion macros and functions for monotonic time stamps
-- NEW: Added support for STM32WB55.
-- NEW: Added chscanf() and buffered streams, contributed by Alex Lewontin.
-- NEW: Added option to LWIP bindings to use memory pools instead of heap
-       allocator.
-- NEW: Added MACv2 driver for STM32H7xx.
-- NEW: Added support for UART9 and UART10 in STM32 USARTv1 drivers.
-- NEW: Added board support for ST_STM32G474RE_DISCOVERY_DPOW1, added demo.
-- NEW: Improved the STM32G4xx clock initialization to use the shared
-       mini-drivers in STM32/LLD/RCCv1, code is greatly simplified.
-- NEW: Updated STM32F4xx platform with new IRQ handling, enabled the missing
-       timers.
-- NEW: Added mcuconf.h updater for STM32F401, STM32F410, STM32F411, STM32F412,
-       F427, F429, F437, F439, F446, F469, F479.
-- NEW: SIO STM32 implementation for USARTs without FIFO in STM32/LLD/USARTv2,
-       implementation with FIFO in STM32/LLD/USARTv3.
-- NEW: Updated SIO driver model to support more use cases.
-- NEW: Simplified USART units use collision detection in STM32 HAL, now it is
-       done like for TIM units for consistency.
-- NEW: Identification macros such as__CHIBIOS_RT__ are now prefixed by
-       two underscores.
-- NEW: Support for 3 analog watchdogs in ADCv3 (STM32F3, L4, L4+, G4).
-- NEW: Support for 3 analog watchdogs in ADCv5 (STM32G0).
-- NEW: Stand-alone ARMv8-M-ML-TZ port.
-- NEW: Stand-alone ARMv8-M-ML port.
-- NEW: Stand-alone ARMv7-M port.
-- NEW: Stand-alone ARMv6-M port.
-- NEW: Merged RT7.
-- NEW: New API in RT for high resolution monotonic time stamps.
-- NEW: Updated FatFS to version 0.14.
-- NEW: Added a new setting to STM32 USBv1 allowing for some clock deviation
-       from 48MHz. Renamed setting USB_HOST_WAKEUP_DURATION to
-       STM32_USB_HOST_WAKEUP_DURATION for consistency.
-- NEW: Added entry for STM32L475 in STM32L4 registry header, updated all
-       configuration files.
-- NEW: Updated CMSIS headers for STM32F7, G0, G4, H7, L0, L4, L4+.
-- NEW: Implemented tickless mode on ADuCM36x family
-- NEW: STM32 ICU driver now allows to setup the ARR register in the
-       configuration structure, the default value should be 0xFFFFFFFFU.
-- NEW: More time conversion macros added to HAL OSAL.
-- NEW: Updated debug tools to be independent from the toolchain position:
-       they now rely on the environment variable CHIBISTUDIO.
-- NEW: Mail Queues test implementation in CMSIS RTOS wrapper.
-- NEW: Added dynamic reconfiguration API to lwIP bindings.
-- LIB: Reorganized static initializer macros.
-- NIL: Reorganized static initializer macros.
-- RT:  Reorganized static initializer macros.
-- RT:  Relocated the "ctx" field in the thread structure in order to save
-       some RAM, it caused unused space in the "ch" variable.
-- EX:  Implemented cache handling in the ADXL355 device driver.
-- EX:  Added support for ADXL355 Low Noise, Low Drift, Low Power, 3-Axis
-       MEMS Accelerometers.
-- NEW: Safer messages mechanism for sandboxes (to be backported to 20.3.1).
-- NEW: Added latency measurement test application.
-- FIX: Fixed wrong behavior in Serial-USB driver (bug #1151)
-       (backported to 20.3.4)(backported to 19.1.5).
-- FIX: Fixed L0x2 series DAC not allocated in registry (bug #1150)
-       (backported to 20.3.4)(backported to 19.1.5).
-- FIX: Fixed inconsistent naming of SAI DMAMUX defines for STM32H7 (bug #1149)
-       (backported to 20.3.4).
-- FIX: Fixed TIM register layout difference for STM32G4 series (bug #1148)
-       (backported to 20.3.4).
-- FIX: Fixed STM32 QUADSPI driver problem when used with DMAv2 (bug #1147)
-       (backported to 20.3.4).
-- FIX: Fixed incorrect IRQ vector for PVM (bug #1146)
-       (backported to 20.3.4).
-- FIX: Fixed missing STM32F765 from registry (bug #1145).
-       (backported to 20.3.3)(backported to 19.1.5).
-- FIX: Fixed wrong macro check on STM32 SPIv3 (bug #1144)
-       (backported to 20.3.3)(backported to 19.1.5).
-- FIX: Fixed wrong check on STM32 TIM9 timer (bug #1143)
-       (backported to 20.3.3).
-- FIX: Fixed FAT time problem in RTC driver (bug #1142)
-       (backported to 20.3.3)(backported to 19.1.5).
-- FIX: Fixed Heap allocation of aligned FIFO objects in chFactory (bug #1141)
-       (backported to 20.3.3)(backported to 19.1.5).
-- FIX: Fixed chsnprintf() sign mode/filler mode conflict (bug #1140)
-       (backported to 20.3.3).
-- FIX: Fixed GCC 10 causes warning in factory module (bug #1139)
-       (backported to 20.3.3)(backported to 19.1.5).
-- FIX: Fixed STM32H7xx Missing CRC RCC macros (bug #1137)
-       (backported to 20.3.3).
-- FIX: Fixed STM32L0x wrong ISR names for USART 4 and 5 (bug #1136)
-       (backported to 20.3.3).
-- FIX: Fixed OTG_FS error on STM32H7 (bug #1135)
-       (backported to 20.3.3)(backported to 19.1.5).
-- FIX: Fixed compile error of STM32 CRYPv1 driver when DMAMU is present
-       (bug #1134)(backported to 20.3.3).
-- FIX: Fixed moved define into hal_wspi_lld.c (bug #1133)
-       (backported to 20.3.3).
-- FIX: Fixed various bugs in MDMAv1 driver (bug #1132)
-       (backported to 20.3.3).
-- FIX: Fixed wrong check on LSI on all STM32 platforms (bug #1131)
-       (backported to 20.3.3)(backported to 19.1.5).
-- FIX: Fixed OSAL does not allow 64 bits resolution values (bug #1128)
-       (backported to 20.3.3)(backported to 19.1.5).
-- FIX: Fixed wrong SDMMC RCC macros for STM32H7xx (bug #1127)
-       (backported to 20.3.3)(backported to 19.1.5).
-- FIX: Fixed STM32 ADCv3 hanging on initialization (bug #1126)
-       (backported to 20.3.3)(backported to 19.1.5).
-- FIX: Fixed I2S-related problems in STM32F4xx registry (bug #1124)
-       (backported to 20.3.3)(backported to 19.1.5).
-- FIX: Fixed STM32 EXTIv1 driver unable to enable/disable fixed lines
-       (bug #1123)(backported to 20.3.3)(backported to 19.1.5).
-- FIX: Fixed incorrect STM32 iWDG initialization in windowed mode (bug #1122)
-       (backported to 20.3.3)(backported to 19.1.5).
-- FIX: Fixed ignored HSIDIV setting on STM32G0xx (bug #1121)
-       (backported to 20.3.3).
-- FIX: Fixed incorrect variable name in recursive mutex handling (bug #1119).
-- FIX: Fixed several problems in STM32 ADCv4 (bug #1116)
-       (backported to 20.3.2).
-- FIX: Fixed STM32 QSPI errata workaround (bug #1117)
-       (backported to 20.3.2).
-- FIX: Fixed wrong condition in STM32 BDMAv1 driver (bug #1115)
-       (backported to 20.3.2).
-- FIX: Fixed HSI48 not getting enabled on STM32H7 (bug #1114)
-       (backported to 20.3.2).
-- FIX: Fixed LPUART1 support for STM32H7xx (bug #1113)
-       (backported to 20.3.2).
-- FIX: Fixed wrong sector count in EFL driver for L4+ dual bank configuration 
-       (bug #1112)(backported to 20.3.2).
-- FIX: Fixed wrong preprocessor checks in STM32 TIMv1 ICU driver (bug #1111)
-       (backported to 20.3.2)(backported to 19.1.5).
-- FIX: Fixed wrong revisions handling in STM32H743 HAL (bug #1110)
-       (backported to 20.3.2)(backported to 19.1.5).
-- FIX: Fixed missing STM32_I2C_BDMA_REQUIRED definition in I2Cv3 driver
-       (bug #1109)(backported to 20.3.2)(backported to 19.1.5).
-- FIX: Fixed wrong definitions in SPC563M board files (bug #1108)
-       (backported to 20.3.2)(backported to 19.1.5).
-- FIX: Fixed cortex-M vectors table alignment problem (bug #1107)
-       (backported to 20.3.2)(backported to 19.1.5).
-- FIX: Fixed extra condition in MAC driver macWaitTransmitDescriptor() function
-       (bug #1106)(backported to 20.3.2)(backported to 19.1.5).
-- FIX: Fixed schedule anomaly when CH_CFG_TIME_QUANTUM is greater than zero
-       (bug #1105)(backported to 20.3.2)(backported to 19.1.5).
-- FIX: Fixed Virtual Timers corner case (bug #1104)
-       (backported to 20.3.2)(backported to 19.1.5).
-- FIX: Fixed GCC6 problem breaks Cortex-M0 port (bug #985)
-       (backported to 20.3.2)(backported to 19.1.5).
-- FIX: Fixed a wrong management of the SPI TX buffer in the ADUCM port 
-       (bug #1103)(backported to 20.3.2).
-- FIX: Fixed STM32F4 EFL sector bug (bug #1102)
-       (backported to 20.3.2).
-- FIX: Fixed differences in STM32 EXTI (bug #1101)
-       (backported to 20.3.2).
-- FIX: Fixed STM32 DACv1 driver regressed because DMA changes (bug #1100)
-       (backported to 20.3.2).
-- FIX: Fixed STM32L0 missing LPUART IRQ initialization (bug #1099)
-       (backported to 20.3.2).
-- FIX: Fixed invalid EXTI definitions for STM32L0xx (bug #1098)
-       (backported to 20.3.2).
-- FIX: Fixed compilation error in file nvic.c (bug #1097)
-       (backported to 20.3.2).
-- FIX: Fixed STM32_DMAx_CH8_HANDLER not defined for DMAv1 (bug #1096)
-       (backported to 20.3.2).
-- FIX: Fixed STM32G4 demos compile fails if smart mode is disabled (bug #1094)
-       (backported to 20.3.2).
-- FIX: Fixed failure in chSemReset() function when counter is equal to MAXINT
-       (bug #1093)(backported to 20.3.2)(backported to 19.1.5).
-- FIX: Fixed swapped definition in ST_STM32F746G_DISCOVERY board files
-       (bug #1092)(backported to 20.3.1)(backported to 19.1.5).
-- FIX: Fixed missing symbols in GCC scatter files (bug #1091)
-       (backported to 20.3.1).
-- FIX: Fixed wrong SAI1 clock selection for STM32G4xx (bug #1090)
-       (backported to 20.3.1).
-- FIX: Fixed STM32H7xx ADC problem in dual mode (bug #1089)
-       (backported to 20.3.1)(backported to 19.1.4).
-- FIX: Fixed invalid CHSEL DMA setting in STM32 UART drivers (bug #1088)
-       (backported to 20.3.1)(backported to 19.1.4).
-- FIX: Fixed wrong arguments for the cacheBufferInvalidate in the STM32 SPI 
-       demo (bug #1086)(backported to 20.3.1)(backported to 19.1.4).
-- FIX: Fixed sector count incorrect in STM32G07/8 EFL driver (bug #1085)
-       (backported to 20.3.1).
-- FIX: Fixed sector size incorrect in STM32F413 EFL driver (bug #1084)
-       (backported to 20.3.1).
-- FIX: Fixed race condition in HAL MAC driver (bug #1083)
-       (backported to 20.3.1)(backported to 19.1.4).
-- FIX: Fixed STM32H7 compile fails for I2C4 (bug #1082)
-       (backported to 20.3.1).
-- FIX: Fixed early interrupts enable in ARMv7-M port (bug #1081)
-       (backported to 20.3.1).
-- FIX: Fixed I2CD4 interrupt vectors are swapped versus I2CD1-I2CD3 (bug #1080)
-       (backported to 20.3.1).
-- FIX: Fixed incorrect clock check when using PLLSAI1R in ADCv3 (bug #1079)
-       (backported to 20.3.1).
-- FIX: Fixed missing checks in TIM6 and TIM7 STM32 mini drivers (bug #1078)
-       (backported to 20.3.1).
-- FIX: Fixed error in EXTIv1 ISRs (bug #1077)
-       (backported to 20.3.1).
-- FIX: Fixed problem in chMtxUnlockAllS() (bug #1076).
-       (backported to 20.3.1)(backported to 19.1.4)(backported to 18.2.3).
+- NEW: Added a Posix-favored shell named "msh" (Mini Shell). The shell is able
+       to run sub-apps inside the same sandbox. The shell can either be placed
+       statically in flash or loaded dynamically in RAM.
+- NEW: Added runnable "apps" capability to SBs, apps available so far: msh, ls.
+- NEW: Added ability to load ELF files to SBs.
+- NEW: Enhanced Posix API for SBs leveraging the VFS integration.
+- NEW: SBs and VFS integration. Each SB can see its own VFS instance.
+- NEW: Added integration of LittleFS on top of our flash infrastructure.
+- NEW: Added a new MEM_IS_VALID_FUNCTION() macro to RT and NIL.
+- NEW: Improved HAL flash interface with mutual exclusion methods, improved
+       EFL and SNOR drivers to use it.
+- NEW: Added a centralized errors handler under /os/common/utils. It will
+       replace those in HAL and SB and will be shared among multiple subsystems.
+- NEW: Added a new OOP model under /os/common/utils. It will replace the
+       one in HAL and will be shared among multiple subsystems.
+- NEW: Changed SB configuration options names to be prefixed with SB_CFG_.
+- NEW: Added a new CH_CFG_HARDENING_LEVEL option to RT.
+- NEW: Added a chXXXDispose() function to all objects in NIL.
+- NEW: Added a chXXXDispose() function to all objects in RT.
+- NEW: Added VFS-related commands to the shell, disabled by default.
+- NEW: Added a new VFS subsystem (Virtual File System), it allows to assemble
+       trees of files from multiple "File System Drivers" into a single tree
+       and access it as a whole.
+- NEW: Added MEM_NATURAL_ALIGN macro to RT and NIL.
+- NEW: Added static initializer for virtual timers in RT.
+- NEW: Added new function chHeapIntegrityCheck().
+- NEW: Added EFL driver implementation for STM32G4xx.
+- NEW: Function chCoreGetStatusX() changed to return a memory region object
+       instead of a simple size.
+- NEW: RT and NIL upgraded to support the enhanced OSLIB.
+- NEW: Memory areas/pointers checker functions added to OSLIB.
+- NEW: STM32G0B1 USBv2 driver.
+- NEW: USBv1 driver optimization and removal of a potential race condition
+       (not demonstrated).
+- NEW: Added elfAcquireBus()/eflReleaseBus() functions to EFL driver.
+- NEW: Increased stacks size in RT test suite from 128 to 192. added an
+       option to override the stack size by defining THREADS_STACK_SIZE
+       in the makefile.
+- NEW: Added STM32L073RZ-Nucleo64 to USB-CDC "multi" demo. Removed old demo.
+- NEW: Added an STM32 WDG "multi" demo. Removed all old WDG demos.
+- NEW: Added option to copy vectors in RAM on GCC startup for ARMv6-M,
+       ARMv7-M and ARMv8-M-ML.
+- NEW: On STM32WBxx added a check on STM32_LSI_ENABLE required by IWDG.
+- NEW: Added SPIv2 support also to STM32WB and STM32WL.
+- FIX: Reverted bug #1100 (backported to 20.3.5)(backported to 21.11.2).
+- FIX: Fixed clock re-initialization problem in STM32 USARTv2 and USARTv3
+       drivers (bug #1217)(backported to 21.11.2).
+- FIX: Fixed assertion on initialization of STM32H7xx (bug #1216)
+       (backported to 21.11.2).
+- FIX: Fixed Virtual Timers failure in a specific condition (bug #1215)
+       (backported to 20.3.5)(backported to 21.11.2).
+- FIX: Fixed invalid STM32_OTG_STEPPING for STM32F40_41xxx (bug #1214)
+       (backported to 21.11.2).
+- FIX: Fixed SPIv2 driver compile fails when SPI_USE_SYNCHRONIZATION is FALSE
+       (bug #1213)(backported to 21.11.2).
+- FIX: Fixed invalid state transition in SNOR flash driver (bug #1212)
+       (backported to 20.3.5)(backported to 21.11.2).
+- FIX: Fixed missing exit condition in sioSynchronizeRX() and
+       sioSynchronizeTX() (bug #1211)(backported to 21.11.2).
+- FIX: Fixed missing check in chobjcaches.h (bug #1210)
+       (backported to 20.3.5)(backported to 21.11.2).
+- FIX: Fixed misspelled chTraceSuspendI() function name (bug #1209)
+       (backported to 21.11.2).
+- FIX: Fixed RT testbuild application broken (bug #1208)
+       (backported to 20.3.5)(backported to 21.11.2).
+- FIX: Fixed PWR_CR2_USV not set in STM32L4+ mcuconf.h file (bug #1207)
+       (backported to 21.11.1).
+- FIX: Fixed USB not enabled on STM32F103x6 (bug #1206)
+       (backported to 20.3.5)(backported to 21.11.1).
+- FIX: Fixed RT test suite build fails when CH_CFG_USE_TIMESTAMP is FALSE
+       (bug #1205)(backported to 21.11.1).
+- FIX: Fixed wrong number of CAN filters for STM32L496/9A6 (bug #1204)
+       (backported to 20.3.5)(backported to 21.11.1).
+- FIX: Fixed DMA stream not disabled in STM32 QUADSPIv1 driver (bug #1203)
+       (backported to 20.3.5)(backported to 21.11.1).
+- FIX: Fixed I2C4 DMA streams for STM32L496 (bug #1202)
+       (backported to 20.3.5)(backported to 21.11.1).
+- FIX: Fixed STM32_SDMMC2_NUMBER on STM32H7 (bug #1201)
+       (backported to 20.3.5)(backported to 21.11.1).
+- FIX: Fixed STM32G0B1 demo application hangs debuggers (bug #1200)
+       (backported to 21.11.1).

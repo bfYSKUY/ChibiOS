@@ -48,6 +48,10 @@
 #if (CH_CFG_USE_MESSAGES == TRUE) || defined(__DOXYGEN__)
 
 /*===========================================================================*/
+/* Module local definitions.                                                 */
+/*===========================================================================*/
+
+/*===========================================================================*/
 /* Module exported variables.                                                */
 /*===========================================================================*/
 
@@ -62,12 +66,6 @@
 /*===========================================================================*/
 /* Module local functions.                                                   */
 /*===========================================================================*/
-
-#if CH_CFG_USE_MESSAGES_PRIORITY == TRUE
-#define msg_insert(tp, qp) ch_sch_prio_insert(&tp->hdr.queue, qp)
-#else
-#define msg_insert(tp, qp) ch_queue_insert(&tp->hdr.queue, qp)
-#endif
 
 /*===========================================================================*/
 /* Module exported functions.                                                */
@@ -91,7 +89,7 @@ msg_t chMsgSend(thread_t *tp, msg_t msg) {
 
   chSysLock();
   currtp->u.sentmsg = msg;
-  msg_insert(currtp, &tp->msgqueue);
+  __ch_msg_insert(&tp->msgqueue, currtp);
   if (tp->state == CH_STATE_WTMSG) {
     (void) chSchReadyI(tp);
   }
@@ -127,7 +125,7 @@ thread_t *chMsgWaitS(void) {
   if (!chMsgIsPendingI(currtp)) {
     chSchGoSleepS(CH_STATE_WTMSG);
   }
-  tp = (thread_t *)ch_queue_fifo_remove(&currtp->msgqueue);
+  tp = threadref(ch_queue_fifo_remove(&currtp->msgqueue));
   tp->state = CH_STATE_SNDMSG;
 
   return tp;
@@ -166,7 +164,7 @@ thread_t *chMsgWaitTimeoutS(sysinterval_t timeout) {
       return NULL;
     }
   }
-  tp = (thread_t *)ch_queue_fifo_remove(&currtp->msgqueue);
+  tp = threadref(ch_queue_fifo_remove(&currtp->msgqueue));
   tp->state = CH_STATE_SNDMSG;
 
   return tp;
@@ -194,7 +192,7 @@ thread_t *chMsgPollS(void) {
   thread_t *tp = NULL;
 
   if (chMsgIsPendingI(currtp)) {
-    tp = (thread_t *)ch_queue_fifo_remove(&currtp->msgqueue);
+    tp = threadref(ch_queue_fifo_remove(&currtp->msgqueue));
     tp->state = CH_STATE_SNDMSG;
   }
 

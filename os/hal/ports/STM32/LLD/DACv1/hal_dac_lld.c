@@ -473,9 +473,13 @@ void dac_lld_stop(DACDriver *dacp) {
 
 #if STM32_DAC_USE_DAC1_CH1
     if (&DACD1 == dacp) {
+#if defined(DAC_CR_EN2)
       if ((dacp->params->dac->CR & DAC_CR_EN2) == 0U) {
         rccDisableDAC1();
       }
+#else
+      rccDisableDAC1();
+#endif
     }
 #endif
 
@@ -489,9 +493,13 @@ void dac_lld_stop(DACDriver *dacp) {
 
 #if STM32_DAC_USE_DAC2_CH1
     if (&DACD3 == dacp) {
+#if defined(DAC_CR_EN2)
       if ((dacp->params->dac->CR & DAC_CR_EN2) == 0U) {
         rccDisableDAC2();
       }
+#else
+      rccDisableDAC2();
+#endif
     }
 #endif
 
@@ -505,9 +513,13 @@ void dac_lld_stop(DACDriver *dacp) {
 
 #if STM32_DAC_USE_DAC3_CH1
     if (&DACD5 == dacp) {
+#if defined(DAC_CR_EN2)
       if ((dacp->params->dac->CR & DAC_CR_EN2) == 0U) {
         rccDisableDAC3();
       }
+#else
+      rccDisableDAC3();
+#endif
     }
 #endif
 
@@ -521,9 +533,13 @@ void dac_lld_stop(DACDriver *dacp) {
 
 #if STM32_DAC_USE_DAC4_CH1
     if (&DACD7 == dacp) {
+#if defined(DAC_CR_EN2)
       if ((dacp->params->dac->CR & DAC_CR_EN2) == 0U) {
         rccDisableDAC4();
       }
+#else
+      rccDisableDAC4();
+#endif
     }
 #endif
 
@@ -652,7 +668,7 @@ void dac_lld_start_conversion(DACDriver *dacp) {
     dmaStreamSetPeripheral(dacp->dma, &dacp->params->dac->DHR12R1 +
                                       dacp->params->dataoffset);
     dmamode = dacp->params->dmamode |
-              STM32_DMA_CR_PSIZE_HWORD | STM32_DMA_CR_MSIZE_HWORD;
+              STM32_DMA_CR_PSIZE_WORD | STM32_DMA_CR_MSIZE_HWORD;
     break;
   case DAC_DHRM_12BIT_LEFT:
     osalDbgAssert(dacp->grpp->num_channels == 1, "invalid number of channels");
@@ -660,7 +676,7 @@ void dac_lld_start_conversion(DACDriver *dacp) {
     dmaStreamSetPeripheral(dacp->dma, &dacp->params->dac->DHR12L1 +
                                       dacp->params->dataoffset);
     dmamode = dacp->params->dmamode |
-              STM32_DMA_CR_PSIZE_HWORD | STM32_DMA_CR_MSIZE_HWORD;
+              STM32_DMA_CR_PSIZE_WORD | STM32_DMA_CR_MSIZE_HWORD;
     break;
   case DAC_DHRM_8BIT_RIGHT:
     osalDbgAssert(dacp->grpp->num_channels == 1, "invalid number of channels");
@@ -668,7 +684,7 @@ void dac_lld_start_conversion(DACDriver *dacp) {
     dmaStreamSetPeripheral(dacp->dma, &dacp->params->dac->DHR8R1 +
                                       dacp->params->dataoffset);
     dmamode = dacp->params->dmamode |
-              STM32_DMA_CR_PSIZE_BYTE | STM32_DMA_CR_MSIZE_BYTE;
+              STM32_DMA_CR_PSIZE_WORD | STM32_DMA_CR_MSIZE_BYTE;
 
     /* In this mode the size of the buffer is halved because two samples
        packed in a single dacsample_t element.*/
@@ -696,7 +712,7 @@ void dac_lld_start_conversion(DACDriver *dacp) {
 
     dmaStreamSetPeripheral(dacp->dma, &dacp->params->dac->DHR8RD);
     dmamode = dacp->params->dmamode |
-              STM32_DMA_CR_PSIZE_HWORD | STM32_DMA_CR_MSIZE_HWORD;
+              STM32_DMA_CR_PSIZE_WORD | STM32_DMA_CR_MSIZE_HWORD;
     n /= 2;
     break;
 #endif

@@ -19,7 +19,7 @@
 
 /**
  * @file    sb/host/sb.h
- * @brief   ARM sandbox macros and structures.
+ * @brief   ARM SandBox macros and structures.
  *
  * @addtogroup ARM_SANDBOX
  * @{
@@ -27,6 +27,10 @@
 
 #ifndef SB_H
 #define SB_H
+
+#include "hal.h"
+#include "vfs.h"
+#include "errcodes.h"
 
 /*===========================================================================*/
 /* Module constants.                                                         */
@@ -49,12 +53,12 @@
 /**
  * @brief   Safety Extensions version string.
  */
-#define CH_SB_VERSION           "1.0.0"
+#define CH_SB_VERSION           "3.0.0"
 
 /**
  * @brief   Safety Extensions version major number.
  */
-#define CH_SB_MAJOR             1
+#define CH_SB_MAJOR             3
 
 /**
  * @brief   Safety Extensions version minor number.
@@ -71,16 +75,32 @@
 /* Module pre-compile time settings.                                         */
 /*===========================================================================*/
 
-/**
- * @brief   Number of memory regions for each sandbox.
- */
-#if !defined(SB_NUM_REGIONS) || defined(__DOXYGEN__)
-#define SB_NUM_REGIONS                      2
-#endif
+#include "sbconf.h"
 
 /*===========================================================================*/
 /* Derived constants and error checks.                                       */
 /*===========================================================================*/
+
+#if !defined(__CHIBIOS_SB_CONF__)
+#error "missing or wrong configuration file"
+#endif
+
+#if !defined(__CHIBIOS_SB_CONF_VER_3_0__)
+#error "obsolete or unknown configuration file"
+#endif
+
+/* Checks on configuration options.*/
+#if !defined(SB_CFG_NUM_REGIONS) || defined(__DOXYGEN__)
+#error "SB_CFG_NUM_REGIONS not defined in sbconf.h"
+#endif
+
+#if !defined(SB_CFG_ENABLE_VFS) || defined(__DOXYGEN__)
+#error "SB_CFG_ENABLE_VFS not defined in sbconf.h"
+#endif
+
+#if !defined(SB_CFG_FD_NUM) || defined(__DOXYGEN__)
+#error "SB_CFG_FD_NUM not defined in sbconf.h"
+#endif
 
 /* License checks.*/
 #if !defined(CH_CUSTOMER_LIC_SB) || !defined(CH_LICENSE_FEATURES)
@@ -109,17 +129,136 @@
 #error "SandBox requires CH_CFG_INTERVALS_SIZE == 32"
 #endif
 
+#if CH_CFG_USE_MEMCHECKS == FALSE
+#error "SandBox requires CH_CFG_USE_MEMCHECKS == TRUE"
+#endif
+
 #if PORT_USE_SYSCALL == FALSE
 #error "SandBox requires PORT_USE_SYSCALL == TRUE"
 #endif
 
-#if (SB_NUM_REGIONS < 1) || (SB_NUM_REGIONS > 4)
-#error "invalid SB_NUM_REGIONS value"
+#if (SB_CFG_NUM_REGIONS < 1) || (SB_CFG_NUM_REGIONS > 4)
+#error "invalid SB_CFG_NUM_REGIONS value"
+#endif
+
+#if (PORT_SWITCHED_REGIONS_NUMBER > 0) &&                                   \
+    (PORT_SWITCHED_REGIONS_NUMBER != SB_CFG_NUM_REGIONS)
+#error "SB_CFG_NUM_REGIONS not matching PORT_SWITCHED_REGIONS_NUMBER"
 #endif
 
 /*===========================================================================*/
 /* Module data structures and types.                                         */
 /*===========================================================================*/
+
+/**
+ * @brief   Type of a sandbox manager global structure.
+ */
+typedef struct {
+#if (CH_CFG_USE_EVENTS == TRUE) || defined(__DOXYGEN__)
+  /**
+   * @brief   Event source for sandbox termination.
+   */
+  event_source_t                termination_es;
+#endif
+} sb_t;
+
+/**
+ * @brief   Type of a sandbox memory region.
+ */
+typedef struct {
+  /**
+   * @brief   Associated memory area.
+   */
+  memory_area_t                 area;
+  /**
+   * @brief   Memory region in use.
+   */
+  bool                          used;
+  /**
+   * @brief   Writable memory range.
+   */
+  bool                          writeable;
+} sb_memory_region_t;
+
+#if (SB_CFG_ENABLE_VFS == TRUE) || defined(__DOXYGEN__)
+/**
+ * @brief   Type of a sandbox I/O structure.
+ */
+typedef struct {
+  /**
+   * @brief   VFS nodes associated to file descriptors.
+   */
+  vfs_node_c                    *vfs_nodes[SB_CFG_FD_NUM];
+} sb_ioblock_t;
+#endif
+
+/**
+ * @brief   Type of a sandbox configuration structure.
+ */
+typedef struct {
+  /**
+   * @brief   Memory region for code.
+   * @note    It is used to locate the startup header.
+   */
+  uint32_t                      code_region;
+  /**
+   * @brief   Memory region for data and stack.
+   * @note    It is used for initial PSP placement.
+   */
+  uint32_t                      data_region;
+  /**
+   * @brief   SandBox regions.
+   * @note    The following memory regions are used only for pointers
+   *          validation, not for MPU setup.
+   */
+  sb_memory_region_t            regions[SB_CFG_NUM_REGIONS];
+#if (PORT_SWITCHED_REGIONS_NUMBER == SB_CFG_NUM_REGIONS) || defined(__DOXYGEN__)
+  /**
+   * @brief   MPU regions initialization values.
+   * @note    Regions initialization values must be chosen to be
+   *          consistent with the values in the "regions" field.
+   */
+  mpureg_t                      mpuregs[SB_CFG_NUM_REGIONS];
+#endif
+#if (SB_CFG_ENABLE_VFS == TRUE) || defined(__DOXYGEN__)
+  /**
+   * @brief   VFS driver associated to the sandbox as root.
+   */
+  vfs_driver_c                  *vfs_driver;
+#endif
+} sb_config_t;
+
+/**
+ * @brief   Type of a sandbox object.
+ */
+typedef struct {
+  /**
+   * @brief   Pointer to the sandbox configuration data.
+   */
+  const sb_config_t             *config;
+  /**
+   * @brief   Thread running in the sandbox.
+   */
+  thread_t                      *tp;
+#if (CH_CFG_USE_MESSAGES == TRUE) || defined(__DOXYGEN__)
+  /**
+   * @brief   Thread sending a message to the sandbox.
+   */
+  thread_t                      *msg_tp;
+#endif
+#if (CH_CFG_USE_EVENTS == TRUE) || defined(__DOXYGEN__)
+  /**
+   * @brief   Sandbox events source.
+   */
+  event_source_t                es;
+#endif
+#if (SB_CFG_ENABLE_VFS == TRUE) || defined(__DOXYGEN__)
+  /**
+   * @brief   VFS bindings for Posix API.
+   */
+  sb_ioblock_t                  io;
+#endif
+} sb_class_t;
 
 /*===========================================================================*/
 /* Module macros.                                                            */
@@ -141,10 +280,12 @@ extern "C" {
 /* Module inline functions.                                                  */
 /*===========================================================================*/
 
-#include "sberr.h"
-#include "sbhost.h"
-#include "sbapi.h"
+#include "sbsysc.h"
+#include "sbelf.h"
 #include "sbposix.h"
+#include "sbapi.h"
+#include "sbhdr.h"
+#include "sbhost.h"
 
 #endif /* SBHOST_H */
 

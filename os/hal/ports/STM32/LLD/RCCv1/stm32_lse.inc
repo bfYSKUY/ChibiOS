@@ -31,8 +31,8 @@
 /*===========================================================================*/
 
 /* Registry checks for robustness.*/
-#if !defined(STM32_HAS_LSE)
-#error "STM32_HAS_LSE not defined in stm32_registry.h"
+#if !defined(STM32_RCC_HAS_LSE)
+#error "STM32_RCC_HAS_LSE not defined in stm32_registry.h"
 #endif
 
 /* Checks on configurations.*/
@@ -87,7 +87,7 @@
 /* Driver local functions.                                                   */
 /*===========================================================================*/
 
-static inline void lse_init(void) {
+__STATIC_INLINE void lse_init(void) {
 
 #if STM32_LSE_ENABLED
   /* LSE activation.*/

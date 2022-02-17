@@ -69,9 +69,11 @@ __STATIC_INLINE sysinterval_t tmo(uint32_t millisec) {
 /**
  * @brief   Virtual timers common callback.
  */
-static void timer_cb(void const *arg) {
-
+static void timer_cb(virtual_timer_t *vtp, void const *arg) {
   osTimerId timer_id = (osTimerId)arg;
+
+  (void)vtp;
+
   timer_id->ptimer(timer_id->argument);
   if (timer_id->type == osTimerPeriodic) {
     chSysLockFromISR();
@@ -208,8 +210,8 @@ osStatus osThreadSetPriority(osThreadId thread_id, osPriority newprio) {
   case CH_STATE_SNDMSGQ:
 #endif
     /* Re-enqueues tp with its new priority on the queue.*/
-    ch_sch_prio_insert(ch_queue_dequeue(&tp->hdr.queue),
-                       (ch_queue_t *)tp->u.wtobjp);
+    ch_sch_prio_insert((ch_queue_t *)tp->u.wtobjp,
+                       ch_queue_dequeue(&tp->hdr.queue));
     break;
 #endif
   case CH_STATE_READY:

@@ -29,35 +29,51 @@
 /* Platform capabilities.                                                    */
 /*===========================================================================*/
 
+/* Cores.*/
+#if defined(STM32WL55xx) || defined(STM32WL54xx)
+#define STM32_HAS_M4                        TRUE
+#define STM32_HAS_M0                        TRUE
+#else
+#define STM32_HAS_M4                        TRUE
+#define STM32_HAS_M0                        FALSE
+#endif
+
 /**
  * @name    STM32WLxx capabilities
  * @{
  */
+
+/* RCC attributes.*/
+#define STM32_RCC_HAS_HSI16                 TRUE
+#define STM32_RCC_HAS_HSI48                 FALSE
+#define STM32_RCC_HAS_MSI                   TRUE
+#define STM32_RCC_HAS_LSI                   TRUE
+#define STM32_RCC_HAS_LSI_PRESCALER         TRUE
+#define STM32_RCC_HAS_LSE                   TRUE
+#define STM32_RCC_HAS_HSE                   FALSE
+#define STM32_RCC_HAS_HSE32                 TRUE
+
+#define STM32_RCC_HAS_PLL                   TRUE
+#define STM32_RCC_PLL_HAS_P                 TRUE
+#define STM32_RCC_PLL_HAS_Q                 TRUE
+#define STM32_RCC_PLL_HAS_R                 TRUE
 
 /* ADC attributes.*/
 #define STM32_HAS_ADC1                      TRUE
 #define STM32_HAS_ADC2                      FALSE
 #define STM32_HAS_ADC3                      FALSE
 #define STM32_HAS_ADC4                      FALSE
+#define STM32_ADC_SUPPORTS_OVERSAMPLING     TRUE
+#define STM32_ADC_SUPPORTS_PRESCALER        TRUE
 
 /* CAN attributes.*/
 #define STM32_HAS_CAN1                      FALSE
 #define STM32_HAS_CAN2                      FALSE
 #define STM32_HAS_CAN3                      FALSE
 
-/* CPU2 attributes.*/
-#if defined(STM32WL55xx) || defined(STM32WL54xx) || defined(__DOXYGEN__)
-#define STM32_HAS_CPU2                      TRUE
-#else
-#define STM32_HAS_CPU2                      FALSE
-#endif /* defined(STM32WL55xx) || defined(STM32WL54xx) */
-
 /* CRC attributes.*/
 #define STM32_HAS_CRC                       TRUE
 #define STM32_CRC_PROGRAMMABLE              TRUE
-
-/* CRYP attributes.*/
-#define STM32_HAS_CRYP1                     TRUE
 
 /* DAC attributes.*/
 #define STM32_HAS_DAC1_CH1                  TRUE
@@ -81,7 +97,7 @@
 /* EXTI attributes.*/
 #define STM32_EXTI_NUM_LINES                47
 #define STM32_EXTI_IMR1_MASK                0xFF9E0000U
-#define STM32_EXTI_IMR2_MASK                0xFFFFDFFBU
+#define STM32_EXTI_IMR2_MASK                0xFFFFDCFBU
 
 /* Flash attributes.*/
 #define STM32_FLASH_NUMBER_OF_BANKS         1
@@ -108,26 +124,28 @@
                                              RCC_AHB2ENR_GPIOBEN |          \
                                              RCC_AHB2ENR_GPIOCEN)
 
-/* GTZC attributes.*/
-#if defined(STM32WL55xx) || defined(STM32WL54xx) || defined(__DOXYGEN__)
-#define STM32_HAS_GTZC_TZSC                 TRUE
-#define STM32_HAS_GTZC_TZIC                 TRUE
-#else
-#define STM32_HAS_GTZC_TZSC                 FALSE
-#define STM32_HAS_GTZC_TZIC                 FALSE
-#endif /* defined(STM32WL55xx) || defined(STM32WL54xx) */
-
-#define STM32_HAS_HASH1                     FALSE
-
 /* HSEM attributes.*/
+#if defined(STM32WL55xx) || defined(STM32WL54xx) || defined(__DOXYGEN__)
 #define STM32_HAS_HSEM                      TRUE
 #define STM32_HSEM_SEMAPHORES               16
+#else
+#define STM32_HAS_HSEM                      FALSE
+#endif /* defined(STM32WL55xx) || defined(STM32WL54xx) */
 
 /* I2C attributes.*/
 #define STM32_HAS_I2C1                      TRUE
 #define STM32_HAS_I2C3                      TRUE
 #define STM32_HAS_I2C2                      FALSE
 #define STM32_HAS_I2C4                      FALSE
+
+/* IPCC attributes.*/
+#if defined(STM32WL55xx) || defined(STM32WL54xx) || defined(__DOXYGEN__)
+#define STM32_HAS_IPCC                      TRUE
+#define STM32_IPCC_RX_CHANNELS              6
+#define STM32_IPCC_TX_CHANNELS              6
+#else
+#define STM32_HAS_IPCC                      FALSE
+#endif /* defined(STM32WL55xx) || defined(STM32WL54xx) */
 
 /* IWDG attributes.*/
 #define STM32_HAS_IWDG                      TRUE
@@ -142,20 +160,6 @@
 /* QUADSPI attributes.*/
 #define STM32_HAS_QUADSPI1                  FALSE
 
-/* Radio Transceiver (RTR) attributes.*/
-#define STM32_HAS_RTR                       TRUE
-#if defined(STM32WLE5xx) || defined(STM32WL55xx) || defined(__DOXYGEN__)
-#define STM32_RTR_HAS_LORA_MODEM            TRUE
-#else
-#define STM32_RTR_HAS_LORA_MODEM            FALSE
-#endif /* defined(STM32WLE5xx) || defined(STM32WL55xx) */
-#define STM32_RTR_HAS_FSK_MODEM             TRUE
-#define STM32_RTR_HAS_MSK_MODEM             TRUE
-#define STM32_RTR_HAS_BPSK_MODEM            TRUE
-#define STM32_RTR_IRQ_EXTI                  44
-#define STM32_RTR_BUSY_EXTI                 45
-#define STM32_RTR_IRQ_HANDLER               Vector108
-
 /* RNG attributes.*/
 #define STM32_HAS_RNG1                      TRUE
 
@@ -163,22 +167,56 @@
 #define STM32_HAS_RTC                       TRUE
 #define STM32_RTC_HAS_SUBSECONDS            TRUE
 #define STM32_RTC_HAS_PERIODIC_WAKEUPS      TRUE
+#define STM32_RTC_HAS_BINARY_MODE           TRUE
+#define STM32_RTC_HAS_MIXED_MODE            TRUE
 #define STM32_RTC_NUM_ALARMS                2
 #define STM32_RTC_STORAGE_SIZE              32
-#define STM32_RTC_TAMP_STAMP_HANDLER        Vector48
-#define STM32_RTC_WKUP_HANDLER              Vector4C
-#define STM32_RTC_ALARM_HANDLER             VectorE4
-#define STM32_RTC_TAMP_STAMP_NUMBER         2
-#define STM32_RTC_WKUP_NUMBER               3
-#define STM32_RTC_ALARM_NUMBER              42
 #define STM32_RTC_ALARM_EXTI                17
 #define STM32_RTC_TAMP_STAMP_EXTI           19
 #define STM32_RTC_WKUP_EXTI                 20
+
+#if !defined(CORE_CM0PLUS)
+
+#define STM32_RTC_TAMP_STAMP_HANDLER        Vector48
+#define STM32_RTC_WKUP_HANDLER              Vector4C
+#define STM32_RTC_ALARM_HANDLER             VectorE8
+#define STM32_RTC_TAMP_STAMP_NUMBER         2
+#define STM32_RTC_WKUP_NUMBER               3
+#define STM32_RTC_ALARM_NUMBER              42
 #define STM32_RTC_IRQ_ENABLE() do {                                         \
   nvicEnableVector(STM32_RTC_TAMP_STAMP_NUMBER, STM32_IRQ_EXTI19_PRIORITY); \
   nvicEnableVector(STM32_RTC_WKUP_NUMBER, STM32_IRQ_EXTI20_PRIORITY);       \
-  nvicEnableVector(STM32_RTC_ALARM_NUMBER, STM32_IRQ_EXTI18_PRIORITY);      \
+  nvicEnableVector(STM32_RTC_ALARM_NUMBER, STM32_IRQ_EXTI17_PRIORITY);      \
 } while (false)
+
+#else
+
+#define STM32_RTC_COMMON_HANDLER            Vector48
+#define STM32_RTC_COMMON_NUMBER             2
+#define STM32_RTC_IRQ_ENABLE()                                              \
+  nvicEnableVector(STM32_RTC_COMMON_NUMBER, STM32_IRQ_EXTI17_20_IRQ_PRIORITY)
+
+#endif /* !defined(CORE_CM0PLUS) */
+
+ /* Enabling RTC-related EXTI lines.*/
+#define STM32_RTC_ENABLE_ALL_EXTI() do {                                    \
+  extiEnableGroup1(EXTI_MASK1(STM32_RTC_ALARM_EXTI) |                       \
+                   EXTI_MASK1(STM32_RTC_TAMP_STAMP_EXTI) |                  \
+                   EXTI_MASK1(STM32_RTC_WKUP_EXTI),                         \
+                   EXTI_MODE_RISING_EDGE | EXTI_MODE_ACTION_INTERRUPT);     \
+} while (false)
+
+/* Clearing RTC-related EXTI interrupts. */
+#define STM32_RTC_CLEAR_ALL_EXTI() do {                                     \
+} while (false)
+
+/* Masks used to preserve state of RTC and TAMP register reserved bits. */
+#define STM32_RTC_CR_MASK                   0xE7FFFF7F
+#define STM32_RTC_PRER_MASK                 0x007F7FFF
+#define STM32_TAMP_CR1_MASK                 0xFFFF0007
+#define STM32_TAMP_CR2_MASK                 0x07070007
+#define STM32_TAMP_FLTCR_MASK               0x000000FF
+#define STM32_TAMP_IER_MASK                 0x003C0003
 
 /* SDMMC attributes.*/
 #define STM32_HAS_SDMMC1                    FALSE
@@ -191,10 +229,9 @@
 #define STM32_HAS_SPI2                      TRUE
 #define STM32_SPI2_SUPPORTS_I2S             TRUE
 
-#define STM32_HAS_SPIR                      TRUE
-#define STM32_SPIR_SUPPORTS_I2S             FALSE
+#define STM32_HAS_SPI3                      TRUE
+#define STM32_SPI3_SUPPORTS_I2S             FALSE
 
-#define STM32_HAS_SPI3                      FALSE
 #define STM32_HAS_SPI4                      FALSE
 #define STM32_HAS_SPI5                      FALSE
 #define STM32_HAS_SPI6                      FALSE

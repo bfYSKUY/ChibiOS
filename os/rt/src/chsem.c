@@ -55,6 +55,8 @@
  * @{
  */
 
+#include <string.h>
+
 #include "ch.h"
 
 #if (CH_CFG_USE_SEMAPHORES == TRUE) || defined(__DOXYGEN__)
@@ -76,9 +78,9 @@
 /*===========================================================================*/
 
 #if CH_CFG_USE_SEMAPHORES_PRIORITY == TRUE
-#define sem_insert(tp, qp) ch_sch_prio_insert(&tp->hdr.queue, qp)
+#define sem_insert(qp, tp) ch_sch_prio_insert(qp, &tp->hdr.queue)
 #else
-#define sem_insert(tp, qp) ch_queue_insert(&tp->hdr.queue, qp)
+#define sem_insert(qp, tp) ch_queue_insert(qp, &tp->hdr.queue)
 #endif
 
 /*===========================================================================*/
@@ -100,6 +102,32 @@ void chSemObjectInit(semaphore_t *sp, cnt_t n) {
 
   ch_queue_init(&sp->queue);
   sp->cnt = n;
+}
+
+/**
+ * @brief   Disposes a semaphore.
+ * @note    Objects disposing does not involve freeing memory but just
+ *          performing checks that make sure that the object is in a
+ *          state compatible with operations stop.
+ * @note    If the option @p CH_CFG_HARDENING_LEVEL is greater than zero then
+ *          the object is also cleared, attempts to use the object would likely
+ *          result in a clean memory access violation because dereferencing
+ *          of @p NULL pointers rather than dereferencing previously valid
+ *          pointers.
+ *
+ * @param[in] sp        pointer to a @p semaphore_t structure
+ *
+ * @dispose
+ */
+void chSemObjectDispose(semaphore_t *sp) {
+
+  chDbgCheck(sp != NULL);
+  chDbgAssert(ch_queue_isempty(&sp->queue) && (sp->cnt >= (cnt_t)0),
+              "object in use");
+
+#if CH_CFG_HARDENING_LEVEL > 0
+  memset((void *)sp, 0, sizeof (semaphore_t));
+#endif
 }
 
 /**
@@ -150,7 +178,7 @@ void chSemResetWithMessageI(semaphore_t *sp, cnt_t n, msg_t msg) {
 
   sp->cnt = n;
   while (ch_queue_notempty(&sp->queue)) {
-    chSchReadyI((thread_t *)ch_queue_lifo_remove(&sp->queue))->u.rdymsg = msg;
+    chSchReadyI(threadref(ch_queue_lifo_remove(&sp->queue)))->u.rdymsg = msg;
   }
 }
 
@@ -199,7 +227,7 @@ msg_t chSemWaitS(semaphore_t *sp) {
   if (--sp->cnt < (cnt_t)0) {
     thread_t *currtp = chThdGetSelfX();
     currtp->u.wtsemp = sp;
-    sem_insert(currtp, &sp->queue);
+    sem_insert(&sp->queue, currtp);
     chSchGoSleepS(CH_STATE_WTSEM);
 
     return currtp->u.rdymsg;
@@ -265,14 +293,14 @@ msg_t chSemWaitTimeoutS(semaphore_t *sp, sysinterval_t timeout) {
               "inconsistent semaphore");
 
   if (--sp->cnt < (cnt_t)0) {
-    if (TIME_IMMEDIATE == timeout) {
+    if (unlikely(TIME_IMMEDIATE == timeout)) {
       sp->cnt++;
 
       return MSG_TIMEOUT;
     }
     thread_t *currtp = chThdGetSelfX();
     currtp->u.wtsemp = sp;
-    sem_insert(currtp, &sp->queue);
+    sem_insert(&sp->queue, currtp);
 
     return chSchGoSleepTimeoutS(CH_STATE_WTSEM, timeout);
   }
@@ -296,7 +324,7 @@ void chSemSignal(semaphore_t *sp) {
               ((sp->cnt < (cnt_t)0) && ch_queue_notempty(&sp->queue)),
               "inconsistent semaphore");
   if (++sp->cnt <= (cnt_t)0) {
-    chSchWakeupS((thread_t *)ch_queue_fifo_remove(&sp->queue), MSG_OK);
+    chSchWakeupS(threadref(ch_queue_fifo_remove(&sp->queue)), MSG_OK);
   }
   chSysUnlock();
 }
@@ -323,7 +351,7 @@ void chSemSignalI(semaphore_t *sp) {
   if (++sp->cnt <= (cnt_t)0) {
     /* Note, it is done this way in order to allow a tail call on
              chSchReadyI().*/
-    thread_t *tp = (thread_t *)ch_queue_fifo_remove(&sp->queue);
+    thread_t *tp = threadref(ch_queue_fifo_remove(&sp->queue));
     tp->u.rdymsg = MSG_OK;
     (void) chSchReadyI(tp);
   }
@@ -352,7 +380,7 @@ void chSemAddCounterI(semaphore_t *sp, cnt_t n) {
 
   while (n > (cnt_t)0) {
     if (++sp->cnt <= (cnt_t)0) {
-      chSchReadyI((thread_t *)ch_queue_fifo_remove(&sp->queue))->u.rdymsg = MSG_OK;
+      chSchReadyI(threadref(ch_queue_fifo_remove(&sp->queue)))->u.rdymsg = MSG_OK;
     }
     n--;
   }
@@ -384,11 +412,11 @@ msg_t chSemSignalWait(semaphore_t *sps, semaphore_t *spw) {
               ((spw->cnt < (cnt_t)0) && ch_queue_notempty(&spw->queue)),
               "inconsistent semaphore");
   if (++sps->cnt <= (cnt_t)0) {
-    chSchReadyI((thread_t *)ch_queue_fifo_remove(&sps->queue))->u.rdymsg = MSG_OK;
+    chSchReadyI(threadref(ch_queue_fifo_remove(&sps->queue)))->u.rdymsg = MSG_OK;
   }
   if (--spw->cnt < (cnt_t)0) {
     thread_t *currtp = chThdGetSelfX();
-    sem_insert(currtp, &spw->queue);
+    sem_insert(&spw->queue, currtp);
     currtp->u.wtsemp = spw;
     chSchGoSleepS(CH_STATE_WTSEM);
     msg = currtp->u.rdymsg;

@@ -30,6 +30,8 @@
 #ifndef CH_H
 #define CH_H
 
+#include <string.h>
+
 #include "chtypes.h"
 
 /*===========================================================================*/
@@ -53,7 +55,7 @@
 /**
  * @brief   Kernel version string.
  */
-#define CH_KERNEL_VERSION       "4.1.0"
+#define CH_KERNEL_VERSION       "4.2.0"
 
 /**
  * @brief   Kernel version major number.
@@ -63,7 +65,7 @@
 /**
  * @brief   Kernel version minor number.
  */
-#define CH_KERNEL_MINOR         1
+#define CH_KERNEL_MINOR         2
 
 /**
  * @brief   Kernel version patch number.
@@ -80,7 +82,7 @@
  * @note    It is meant to be used in configuration files as switch.
  */
 #if !defined(FALSE) || defined(__DOXYGEN__)
-#define FALSE               0
+#define FALSE                   0
 #endif
 
 /**
@@ -88,7 +90,7 @@
  * @note    It is meant to be used in configuration files as switch.
  */
 #if !defined(TRUE) || defined(__DOXYGEN__)
-#define TRUE                1
+#define TRUE                    1
 #endif
 /** @} */
 
@@ -167,6 +169,13 @@
 #define CH_STATE_NAMES                                                      \
   "WTSTART", "READY", "SLEEPING", "SUSPENDED", "WTEXIT", "WTQUEUE",         \
   "WTOREVT", "WTANDEVT", "SNDMSGQ", "SNDMSG", "WTMSG", "FINAL"
+/** @} */
+
+/**
+ * @name    RT options not existing in NIL
+ * @{
+ */
+#define CH_CFG_USE_REGISTRY         FALSE
 /** @} */
 
 /*===========================================================================*/
@@ -370,6 +379,48 @@
 /*===========================================================================*/
 /* Module data structures and types.                                         */
 /*===========================================================================*/
+
+#if defined(PORT_DOES_NOT_PROVIDE_TYPES) || defined(__DOXYGEN__)
+/**
+ * @name    Kernel types
+ * @{
+ */
+typedef port_rtcnt_t    rtcnt_t;            /**< Realtime counter.          */
+typedef port_syssts_t   syssts_t;           /**< System status word.        */
+typedef port_stkalign_t stkalign_t;         /**< Stack alignment type.      */
+
+#if (PORT_ARCH_REGISTERS_WIDTH == 32) || defined(__DOXYGEN__)
+typedef uint8_t         tstate_t;           /**< Thread state.              */
+typedef uint32_t        tprio_t;            /**< Thread priority.           */
+typedef int32_t         msg_t;              /**< Inter-thread message.      */
+typedef int32_t         eventid_t;          /**< Numeric event identifier.  */
+typedef uint32_t        eventmask_t;        /**< Mask of event identifiers. */
+typedef uint32_t        eventflags_t;       /**< Mask of event flags.       */
+typedef int32_t         cnt_t;              /**< Generic signed counter.    */
+typedef uint32_t        ucnt_t;             /**< Generic unsigned counter.  */
+#elif PORT_ARCH_REGISTERS_WIDTH == 16
+typedef uint8_t         tstate_t;           /**< Thread state.              */
+typedef uint16_t        tprio_t;            /**< Thread priority.           */
+typedef int16_t         msg_t;              /**< Inter-thread message.      */
+typedef int16_t         eventid_t;          /**< Numeric event identifier.  */
+typedef uint16_t        eventmask_t;        /**< Mask of event identifiers. */
+typedef uint16_t        eventflags_t;       /**< Mask of event flags.       */
+typedef int16_t         cnt_t;              /**< Generic signed counter.    */
+typedef uint16_t        ucnt_t;             /**< Generic unsigned counter.  */
+#elif PORT_ARCH_REGISTERS_WIDTH == 8
+typedef uint8_t         tstate_t;           /**< Thread state.              */
+typedef uint8_t         tprio_t;            /**< Thread priority.           */
+typedef int16_t         msg_t;              /**< Inter-thread message.      */
+typedef int8_t          eventid_t;          /**< Numeric event identifier.  */
+typedef uint8_t         eventmask_t;        /**< Mask of event identifiers. */
+typedef uint8_t         eventflags_t;       /**< Mask of event flags.       */
+typedef int8_t          cnt_t;              /**< Generic signed counter.    */
+typedef uint8_t         ucnt_t;             /**< Generic unsigned counter.  */
+#else
+#error "unsupported PORT_ARCH_REGISTERS_WIDTH value"
+#endif
+/** @} */
+#endif
 
 #if (CH_CFG_ST_RESOLUTION == 32) || defined(__DOXYGEN__)
 /**
@@ -610,6 +661,24 @@ struct nil_os_instance {
  * @name    Memory alignment support macros
  * @{
  */
+/**
+ * @brief   Natural data alignment for the current architecture.
+ * @note    Represents the required alignment for integer and pointer
+ *          data types.
+ */
+#define MEM_NATURAL_ALIGN       PORT_NATURAL_ALIGN
+
+/**
+ * @brief   Port-defined check on function pointers.
+ *
+ * @param[in] p         function pointer to be checked
+ */
+#if defined(PORT_IS_VALID_FUNCTION) || defined(__DOXYGEN__)
+#define MEM_IS_VALID_FUNCTION(p)    PORT_IS_VALID_FUNCTION(p)
+#else
+#define MEM_IS_VALID_FUNCTION(p)    true
+#endif
+
 /**
  * @brief   Alignment mask constant.
  *
@@ -1170,16 +1239,25 @@ struct nil_os_instance {
 /**
  * @brief   Initializes a threads queue object.
  *
- * @param[out] tqp      pointer to the threads queue object
+ * @param[out] tqp      pointer to a @p threads_queue_t structure
  *
  * @init
  */
 #define chThdQueueObjectInit(tqp) ((tqp)->cnt = (cnt_t)0)
 
 /**
+ * @brief   Disposes a threads queue.
+ *
+ * @param[in] tqp       pointer to a @p threads_queue_t structure
+ *
+ * @dispose
+ */
+#define chThdObjectDispose(tqp) ((void) tqp)
+
+/**
  * @brief   Evaluates to @p true if the specified queue is empty.
  *
- * @param[out] tqp      pointer to the threads queue object
+ * @param[out] tqp      pointer to a @p threads_queue_t structure
  * @return              The queue status.
  * @retval false        if the queue is not empty.
  * @retval true         if the queue is empty.

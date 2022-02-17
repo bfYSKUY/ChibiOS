@@ -214,6 +214,7 @@ typedef struct {
  * @param[in] prio      thread priority
  * @param[in] funcp     thread function pointer
  * @param[in] arg       thread argument
+ * @param[in] oip       instance affinity
  */
 #define THD_DESCRIPTOR_AFFINITY(name, wbase, wend, prio, funcp, arg, oip) { \
   (name),                                                                   \
@@ -290,7 +291,7 @@ extern "C" {
                                const char *name,
                                tprio_t prio);
 #if CH_DBG_FILL_THREADS == TRUE
-  void __thd_memfill(uint8_t *startp, uint8_t *endp, uint8_t v);
+  void __thd_stackfill(uint8_t *startp, uint8_t *endp);
 #endif
   thread_t *chThdCreateSuspendedI(const thread_descriptor_t *tdp);
   thread_t *chThdCreateSuspended(const thread_descriptor_t *tdp);
@@ -315,6 +316,8 @@ extern "C" {
   void chThdResumeI(thread_reference_t *trp, msg_t msg);
   void chThdResumeS(thread_reference_t *trp, msg_t msg);
   void chThdResume(thread_reference_t *trp, msg_t msg);
+  void chThdQueueObjectInit(threads_queue_t *tqp);
+  void chThdObjectDispose(threads_queue_t *tqp);
   msg_t chThdEnqueueTimeoutS(threads_queue_t *tqp, sysinterval_t timeout);
   void chThdDequeueNextI(threads_queue_t *tqp, msg_t msg);
   void chThdDequeueAllI(threads_queue_t *tqp, msg_t msg);
@@ -339,7 +342,7 @@ extern "C" {
  */
 static inline thread_t *chThdGetSelfX(void) {
 
-  return __sch_get_currthread(currcore);
+  return __sch_get_currthread();
 }
 
 /**
@@ -451,21 +454,9 @@ static inline void chThdSleepS(sysinterval_t ticks) {
 }
 
 /**
- * @brief   Initializes a threads queue object.
- *
- * @param[out] tqp      pointer to the threads queue object
- *
- * @init
- */
-static inline void chThdQueueObjectInit(threads_queue_t *tqp) {
-
-  ch_queue_init(&tqp->queue);
-}
-
-/**
  * @brief   Evaluates to @p true if the specified queue is empty.
  *
- * @param[out] tqp      pointer to the threads queue object
+ * @param[out] tqp      pointer to a @p threads_queue_t structure
  * @return              The queue status.
  * @retval false        if the queue is not empty.
  * @retval true         if the queue is empty.
@@ -485,7 +476,7 @@ static inline bool chThdQueueIsEmptyI(threads_queue_t *tqp) {
  *          is empty.
  * @pre     The queue must contain at least an object.
  *
- * @param[in] tqp       pointer to the threads queue object
+ * @param[in] tqp       pointer to a @p threads_queue_t structure
  * @param[in] msg       the message code
  *
  * @iclass
@@ -495,7 +486,7 @@ static inline void chThdDoDequeueNextI(threads_queue_t *tqp, msg_t msg) {
 
   chDbgAssert(ch_queue_notempty(&tqp->queue), "empty queue");
 
-  tp = (thread_t *)ch_queue_fifo_remove(&tqp->queue);
+  tp = threadref(ch_queue_fifo_remove(&tqp->queue));
 
   chDbgAssert(tp->state == CH_STATE_QUEUED, "invalid state");
 

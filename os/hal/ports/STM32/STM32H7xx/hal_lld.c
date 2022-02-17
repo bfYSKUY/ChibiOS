@@ -140,16 +140,16 @@ void hal_lld_init(void) {
      have been initialized in the board initialization file (board.c).
      Note, GPIOs are not reset because initialized before this point in
      board files.*/
-  rccResetAHB1(~0);
-  rccResetAHB2(~0);
-  rccResetAHB3(~(RCC_AHB3RSTR_FMCRST |
+  __rccResetAHB1(~0);
+  __rccResetAHB2(~0);
+  __rccResetAHB3(~(RCC_AHB3RSTR_FMCRST |
                  0x80000000U));     /* Was RCC_AHB3RSTR_CPURST in Rev-V.*/
-  rccResetAHB4(~(RCC_APB4RSTR_SYSCFGRST | STM32_GPIO_EN_MASK));
-  rccResetAPB1L(~0);
-  rccResetAPB1H(~0);
-  rccResetAPB2(~0);
-  rccResetAPB3(~0);
-  rccResetAPB4(~0);
+  __rccResetAHB4(~(RCC_APB4RSTR_SYSCFGRST | STM32_GPIO_EN_MASK));
+  __rccResetAPB1L(~0);
+  __rccResetAPB1H(~0);
+  __rccResetAPB2(~0);
+  __rccResetAPB3(~0);
+  __rccResetAPB4(~0);
 #endif /* STM32_NO_INIT == FALSE */
 
   /* DMA subsystems initialization.*/
@@ -179,7 +179,7 @@ void hal_lld_init(void) {
     size = MPU_RASR_SIZE_256K;
 #elif (STM32_NOCACHE_SRAM1_SRAM2 == FALSE) && (STM32_NOCACHE_SRAM3 == TRUE)
     base = 0x30040000U;
-    size = MPU_RASR_SIZE_16K;
+    size = MPU_RASR_SIZE_32K;
 #else
 #error "invalid constants used in mcuconf.h"
 #endif
@@ -190,13 +190,16 @@ void hal_lld_init(void) {
                        base,
                        MPU_RASR_ATTR_AP_RW_RW |
                        MPU_RASR_ATTR_NON_CACHEABLE |
+                       MPU_RASR_ATTR_S |
                        size |
                        MPU_RASR_ENABLE);
     mpuEnable(MPU_CTRL_PRIVDEFENA);
 
+#if STM32_TARGET_CORE == 1
     /* Invalidating data cache to make sure that the MPU settings are taken
        immediately.*/
     SCB_CleanInvalidateDCache();
+#endif
   }
 #endif
 }

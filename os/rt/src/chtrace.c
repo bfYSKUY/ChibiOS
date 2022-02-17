@@ -81,18 +81,18 @@ NOINLINE static void trace_next(os_instance_t *oip) {
  * @brief   Circular trace buffer initialization.
  * @note    Internal use only.
  *
- * @param[out] oip      pointer to the @p os_instance_t structure
+ * @param[out] tbp      pointer to the @p trace_buffer_t structure
  *
  * @notapi
  */
-void __trace_init(os_instance_t *oip) {
+void __trace_object_init(trace_buffer_t *tbp) {
   unsigned i;
 
-  oip->trace_buffer.suspended = (uint16_t)~CH_DBG_TRACE_MASK;
-  oip->trace_buffer.size      = CH_DBG_TRACE_BUFFER_SIZE;
-  oip->trace_buffer.ptr       = &oip->trace_buffer.buffer[0];
+  tbp->suspended = (uint16_t)~CH_DBG_TRACE_MASK;
+  tbp->size      = CH_DBG_TRACE_BUFFER_SIZE;
+  tbp->ptr       = &tbp->buffer[0];
   for (i = 0U; i < (unsigned)CH_DBG_TRACE_BUFFER_SIZE; i++) {
-    oip->trace_buffer.buffer[i].type = CH_TRACE_TYPE_UNUSED;
+    tbp->buffer[i].type = CH_TRACE_TYPE_UNUSED;
   }
 }
 
@@ -202,7 +202,7 @@ void __trace_halt(const char *reason) {
  *
  * @iclass
  */
-void chDbgWriteTraceI(void *up1, void *up2) {
+void chTraceWriteI(void *up1, void *up2) {
   os_instance_t *oip = currcore;
 
   chDbgCheckClassI();
@@ -224,10 +224,10 @@ void chDbgWriteTraceI(void *up1, void *up2) {
  *
  * @api
  */
-void chDbgWriteTrace(void *up1, void *up2) {
+void chTraceWrite(void *up1, void *up2) {
 
   chSysLock();
-  chDbgWriteTraceI(up1, up2);
+  chTraceWriteI(up1, up2);
   chSysUnlock();
 }
 
@@ -238,7 +238,7 @@ void chDbgWriteTrace(void *up1, void *up2) {
  *
  * @iclass
  */
-void chDbgSuspendTraceI(uint16_t mask) {
+void chTraceSuspendI(uint16_t mask) {
 
   chDbgCheckClassI();
 
@@ -252,10 +252,10 @@ void chDbgSuspendTraceI(uint16_t mask) {
  *
  * @api
  */
-void chDbgSuspendTrace(uint16_t mask) {
+void chTraceSuspend(uint16_t mask) {
 
   chSysLock();
-  chDbgSuspendTraceI(mask);
+  chTraceSuspendI(mask);
   chSysUnlock();
 }
 
@@ -266,7 +266,7 @@ void chDbgSuspendTrace(uint16_t mask) {
  *
  * @iclass
  */
-void chDbgResumeTraceI(uint16_t mask) {
+void chTraceResumeI(uint16_t mask) {
 
   chDbgCheckClassI();
 
@@ -280,10 +280,10 @@ void chDbgResumeTraceI(uint16_t mask) {
  *
  * @api
  */
-void chDbgResumeTrace(uint16_t mask) {
+void chTraceResume(uint16_t mask) {
 
   chSysLock();
-  chDbgResumeTraceI(mask);
+  chTraceResumeI(mask);
   chSysUnlock();
 }
 #endif /* CH_DBG_TRACE_MASK != CH_DBG_TRACE_MASK_DISABLED */

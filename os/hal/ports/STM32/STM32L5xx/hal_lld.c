@@ -52,44 +52,7 @@ uint32_t SystemCoreClock = STM32_HCLK;
 /* Driver local functions.                                                   */
 /*===========================================================================*/
 
-/**
- * @brief   Resets the backup domain.
- */
-__STATIC_INLINE void bd_reset(void) {
-
-  /* Reset BKP domain if different clock source selected.*/
-  if ((RCC->BDCR & STM32_RTCSEL_MASK) != STM32_RTCSEL) {
-    /* Backup domain reset.*/
-    RCC->BDCR = RCC_BDCR_BDRST;
-    RCC->BDCR = 0U;
-  }
-}
-
-/**
- * @brief   Initializes the backup domain.
- * @note    WARNING! Changing RTC clock source impossible without reset
- *          of the whole BKP domain.
- */
-__STATIC_INLINE void bd_init(void) {
-  uint32_t bdcr;
-
-  /* Current settings.*/
-  bdcr = RCC->BDCR;
-
-#if HAL_USE_RTC
-  /* RTC enable.*/
-  if ((bdcr & RCC_BDCR_RTCEN) == 0U) {
-    bdcr |= RCC_BDCR_RTCEN;
-  }
-#endif
-
-  /* Selectors.*/
-  bdcr &= ~(STM32_RTCSEL_MASK | STM32_LSCOSEL_MASK);
-  bdcr |= STM32_RTCSEL | STM32_LSCOSEL;
-
-  /* Final settings.*/
-  RCC->BDCR = bdcr;
-}
+#include "stm32_bd.inc"
 
 __STATIC_INLINE void flash_ws_init(uint32_t bits) {
 
@@ -157,6 +120,10 @@ void stm32_clock_init(void) {
 #else
   secflags = RCC->SECSR;
 #endif
+
+  /* SYSCFG clock enabled here because it is a multi-functional unit shared
+     among multiple drivers.*/
+  rccEnableAPB2(RCC_APB2ENR_SYSCFGEN, false);
 
   /* PWR clock enable.*/
 #if defined(HAL_USE_RTC) && defined(RCC_APB1ENR1_RTCAPBEN)
@@ -267,10 +234,6 @@ void stm32_clock_init(void) {
 
   /* Cache enable.*/
   icache_init();
-
-  /* SYSCFG clock enabled here because it is a multi-functional unit shared
-     among multiple drivers.*/
-  rccEnableAPB2(RCC_APB2ENR_SYSCFGEN, true);
 
 #endif /* STM32_NO_INIT */
 }

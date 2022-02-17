@@ -52,6 +52,30 @@
 /* Derived constants and error checks.                                       */
 /*===========================================================================*/
 
+/**
+ * @brief   Core zero memory affinity macro.
+ * @note    The memory is meant to be reachable by both cores but
+ *          preferred by core zero.
+ * @note    Only uninitialized variables can be tagged with this attribute.
+ */
+#if defined(PORT_CORE0_BSS_SECTION) || defined(__DOXYGEN__)
+#define CH_SYS_CORE0_MEMORY             PORT_CORE0_BSS_SECTION
+#else
+#define CH_SYS_CORE0_MEMORY             /* Default.*/
+#endif
+
+/**
+ * @brief   Core one memory affinity macro.
+ * @note    The memory is meant to be reachable by both cores but
+ *          preferred by core one.
+ * @note    Only uninitialized variables can be tagged with this attribute.
+ */
+#if defined(PORT_CORE1_BSS_SECTION) || defined(__DOXYGEN__)
+#define CH_SYS_CORE1_MEMORY             PORT_CORE1_BSS_SECTION
+#else
+#define CH_SYS_CORE1_MEMORY             /* Default.*/
+#endif
+
 /*===========================================================================*/
 /* Module data structures and types.                                         */
 /*===========================================================================*/
@@ -62,16 +86,12 @@
 #if defined(PORT_INSTANCE_ACCESS)
   #define currcore                      PORT_INSTANCE_ACCESS
 #else /* !defined(PORT_INSTANCE_ACCESS) */
-  #if defined(PORT_CORES_NUMBER)
-    #if (PORT_CORES_NUMBER > 1) || defined(__DOXYGEN__)
-      #define currcore                  ch_system.instances[port_get_core_id()]
-    #else
-      #define currcore                  (&ch0)
-    #endif
+  #if (PORT_CORES_NUMBER > 1) || defined(__DOXYGEN__)
+    #define currcore                    ch_system.instances[port_get_core_id()]
   #else
     #define currcore                    (&ch0)
-  #endif /* defined(PORT_CORES_NUMBER) */
-#endif /* defined(PORT_INSTANCE_ACCESS) */
+  #endif
+#endif
 
 /*===========================================================================*/
 /* Module macros.                                                            */
@@ -312,6 +332,7 @@ extern "C" {
 #endif
   void chSysWaitSystemState(system_state_t state);
   void chSysInit(void);
+  thread_t *chSysGetIdleThreadX(void);
   bool chSysIntegrityCheckI(unsigned testmask);
   void chSysTimerHandlerI(void);
   syssts_t chSysGetStatusAndLockX(void);
@@ -497,25 +518,6 @@ static inline void chSysNotifyInstance(os_instance_t *oip) {
   port_notify_instance(oip);
 }
 #endif
-
-#if (CH_CFG_NO_IDLE_THREAD == FALSE) || defined(__DOXYGEN__)
-/**
- * @brief   Returns a pointer to the idle thread.
- * @pre     In order to use this function the option @p CH_CFG_NO_IDLE_THREAD
- *          must be disabled.
- * @note    The reference counter of the idle thread is not incremented but
- *          it is not strictly required being the idle thread a static
- *          object.
- *
- * @return              Pointer to the idle thread.
- *
- * @xclass
- */
-static inline thread_t *chSysGetIdleThreadX(void) {
-
-  return (thread_t *)currcore->rlist.pqueue.prev;
-}
-#endif /* CH_CFG_NO_IDLE_THREAD == FALSE */
 
 #endif /* CHSYS_H */
 

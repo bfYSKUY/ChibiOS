@@ -53,6 +53,14 @@
 #error "CH_CFG_SMP_MODE not defined in chconf.h"
 #endif
 
+#if !defined(CH_CFG_HARDENING_LEVEL)
+#error "CH_CFG_HARDENING_LEVEL not defined in chconf.h"
+#endif
+
+#if (CH_CFG_HARDENING_LEVEL < 0) || (CH_CFG_HARDENING_LEVEL > 2)
+#error "invalid CH_CFG_HARDENING_LEVEL value in chconf.h"
+#endif
+
 /* System timers checks.*/
 #if !defined(CH_CFG_ST_RESOLUTION)
 #error "CH_CFG_ST_RESOLUTION not defined in chconf.h"
@@ -253,6 +261,10 @@
 
 #if !defined(CH_CFG_TRACE_HOOK)
 #error "CH_CFG_TRACE_HOOK not defined in chconf.h"
+#endif
+
+#if !defined(CH_CFG_RUNTIME_FAULTS_HOOK)
+#error "CH_CFG_RUNTIME_FAULTS_HOOK not defined in chconf.h"
 #endif
 
 /*===========================================================================*/

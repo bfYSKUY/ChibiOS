@@ -91,27 +91,58 @@
 
                 .thumb
 
-                .section .sandbox, "ax"
+                .section    .sandbox, "ax"
+
                 .align      4
-                .globl      _sandbox
-_sandbox:       .long       0xFE9154C0
+                .globl      __sandbox
+__sandbox:      .long       0xFE9154C0
                 .long       0x0C4519EF
-                .long       16
+                .long       32
+                .long       __crt0_entry
+                .long       __crt0_exit
                 .long       0
-                b           _crt0_entry
+                .long       0
+                .long       0
+
+                .bss
+
+                .align      2
+                .global     __sb_parameters
+__sb_parameters:
+                .ds.l       1
+                .ds.l       1
+                .global     environ             /* Required by newlib.*/
+environ:
+                .ds.l       1
+                .ds.l       1
+                .ds.l       1
 
                 .text
-/*
- * CRT0 entry point.
- */
-                .align  2
+
+                /* Default exit method, calling OS exit().*/
+                .align      2
                 .thumb_func
-                .global _crt0_entry
-_crt0_entry:
+                .global     __crt0_exit
+__crt0_exit:
+                svc         #1
+.exitloop:      b           .exitloop
+
+                /* Default entry point, note, the "nop" is meant to be there
+                   the loader could overwrite it with a "bkpt".*/
+                .align      2
+                .thumb_func
+                .global     __crt0_entry
+__crt0_entry:
+                nop
+
+                /* Popping from the stack the information passed by the
+                   loader, saving the stack position as end of heap.*/
+                pop     {r7, r8, r9, r10}
+                mov     r11, sp
 
                 /* PSP stack pointers initialization.*/
                 ldr     r0, =__user_psp_end__
-                msr     PSP, r0
+                mov     sp, r0
 
 #if CRT0_INIT_STACKS == TRUE
                 /* User process Stack initialization. Note, it assumes that the
@@ -154,6 +185,10 @@ bloop:
                 blo     bloop
 #endif /* CRT0_INIT_BSS == TRUE */
 
+                /* Storing the sandbox parameters block.*/
+                ldr     r0, =__sb_parameters
+                stmia   r0, {r7, r8, r9, r10, r11}
+
 #if CRT0_CALL_CONSTRUCTORS == TRUE
                 /* Constructors invocation.*/
                 ldr     r4, =__init_array_base__
@@ -168,10 +203,18 @@ endinitloop:
 #endif /* CRT0_CALL_CONSTRUCTORS == TRUE */
 
                 /* Main program invocation, r0 contains the returned value.*/
+                mov     r0, r7
+                mov     r1, r8
+                mov     r2, r9
                 bl      main
+                /* Falls into _exit().*/
 
+                .thumb_func
+                .global     _exit               /* Required by newlib.*/
+_exit:
 #if CRT0_CALL_DESTRUCTORS == TRUE
                 /* Destructors invocation.*/
+                mov     r6, r0
                 ldr     r4, =__fini_array_base__
                 ldr     r5, =__fini_array_end__
 finiloop:
@@ -180,10 +223,12 @@ finiloop:
                 ldr     r1, [r4], #4
                 blx     r1
                 b       finiloop
+                mov     r0, r6
 endfiniloop:
 #endif /* CRT0_CALL_DESTRUCTORS == TRUE */
-
-.exitloop:      b       .exitloop
+                ldr     r1, =__sandbox
+                ldr     r2, [r1, #16]           /* Predefined exit vector.*/
+                bx      r2
 
 #endif /* !defined(__DOXYGEN__) */
 

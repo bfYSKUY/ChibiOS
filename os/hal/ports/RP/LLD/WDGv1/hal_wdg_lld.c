@@ -1,5 +1,5 @@
 /*
-    ChibiOS - Copyright (C) 2006..2018 Giovanni Di Sirio
+    ChibiOS - Copyright (C) 2006..2021 Giovanni Di Sirio
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -64,9 +64,9 @@ void wdg_lld_init(void) {
   WDGD1.state = WDG_STOP;
   WDGD1.wdg   = WATCHDOG;
 #if WDG_HAS_STORAGE
-  WDGD1.scratch = SCRATCH;
+  WDGD1.scratch = (uint8_t *)WDGD1.wdg->SCRATCH;
 #endif
-  WDGD1.wdg->CRTL &= ~WATCHDOG_CTRL_ENABLE;
+  WDGD1.wdg->CTRL &= ~WATCHDOG_CTRL_ENABLE;
 }
 
 /**
@@ -79,22 +79,20 @@ void wdg_lld_init(void) {
 void wdg_lld_start(WDGDriver *wdgp) {
 
   /* Set the time. */
-  uint32_t time = wdgp->wdg->config.rlr;
+  uint32_t time = wdgp->config->rlr;
 
-  /* Due to a silicon bug (see errata RP2040-E1) WDG counts down at each edge. */
+  /* Due to a silicon bug (see errata RP2040-E1) WDG decrements at each edge. */
   time = ((time == 0U) ? 50 : time) * 2 * 1000;
 
   /* Set ceiling if greater than count capability. */
-  if (time > WATCHDOG_CTRL_TIME) {
-      time = WATCHDOG_CTRL_TIME;
-  }
+  time = (time > WATCHDOG_CTRL_TIME) ? WATCHDOG_CTRL_TIME : time;
 
-  /* Set the initial interval, state, control bits and enable WDG. */
+  /* Set the initial interval, resets, control bits and enable WDG. */
   wdgp->wdg->LOAD = time;
-  wdgp->state = WDG_READY;
-  wdgp->wdg->CTRL = WATCHDOG_CTRL_PAUSE_DBG0_BITS |
-                    WATCHDOG_CTRL_PAUSE_DBG1_BITS |
-                    WATCHDOG_CTRL_PAUSE_JTAG_BITS |
+  //PSM_SET->WDSEL = PSM_ANY_PROC1 | PSM_ANY_PROC0;
+  wdgp->wdg->CTRL = WATCHDOG_CTRL_PAUSE_DBG0 |
+                    WATCHDOG_CTRL_PAUSE_DBG1 |
+                    WATCHDOG_CTRL_PAUSE_JTAG |
                     WATCHDOG_CTRL_ENABLE;
 }
 
@@ -107,7 +105,7 @@ void wdg_lld_start(WDGDriver *wdgp) {
  */
 void wdg_lld_stop(WDGDriver *wdgp) {
 
-  wdgp->wdg->CRTL &= ~WATCHDOG_CTRL_ENABLE;
+  wdgp->wdg->CTRL &= ~WATCHDOG_CTRL_ENABLE;
 }
 
 /**
@@ -119,7 +117,7 @@ void wdg_lld_stop(WDGDriver *wdgp) {
  */
 void wdg_lld_reset(WDGDriver * wdgp) {
 
-  wdgp->wdg->LOAD = wdgp->wdg->config.rlr;
+  wdgp->wdg->LOAD = wdgp->config->rlr;
 }
 
 #endif /* HAL_USE_WDG */
